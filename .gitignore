@@ -1,0 +1,17 @@
+node_modules/
+.env
+.DS_Store
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+dist/
+build/
+build-package/
+*.zip
+
+# research scratch (large extracted Steam bundles; curated reports live in research/reports)
+research/
+
+# orchestration engine: machine/trial-only config override
+orchestration.conf.local
