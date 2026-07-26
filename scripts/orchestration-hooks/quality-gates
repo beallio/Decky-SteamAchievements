@@ -3,9 +3,9 @@
 # root. Exit non-zero to fail the gate. The engine separately enforces that
 # review notes are not deleted, so that is not repeated here.
 #
-# Decky-Metadata is a Decky Loader plugin:
+# Achievements Restored is a Decky Loader plugin:
 #   - TypeScript/React frontend in src/*.tsx, built with rollup -> dist/
-#   - a Python backend: main.py (thin RPC facade) plus backend/*.py services
+#   - a minimal Python backend: main.py (plus backend/*.py if present)
 #
 # The gate is a build + static check + Python unit test pass:
 #   1. TypeScript type-check (tsc --noEmit) and rollup production build
@@ -18,7 +18,7 @@ cd "$repo_root"
 
 # Keep generated caches/installs outside Dropbox through the same environment
 # contract used by direct contributor commands.
-export TMPDIR="/tmp/Decky-Metadata"
+export TMPDIR="/tmp/Decky-SteamAchievements"
 export XDG_CACHE_HOME="$TMPDIR/.cache"
 export npm_config_cache="$TMPDIR/.npm"
 export PYTHONPYCACHEPREFIX="$TMPDIR/__pycache__"
