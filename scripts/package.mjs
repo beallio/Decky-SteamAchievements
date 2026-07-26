@@ -182,6 +182,8 @@ function resolveReleaseVersion(releaseVersion, baseVersion) {
 
 function findPythonModules(repoRoot, dirRelative) {
   const results = [];
+  // Frontend-only plugins have no backend/ dir; treat a missing dir as empty.
+  if (!fs.existsSync(path.join(repoRoot, dirRelative))) return results;
   const walk = (currentRelative) => {
     const currentAbsolute = path.join(repoRoot, currentRelative);
     for (const entry of fs.readdirSync(currentAbsolute, { withFileTypes: true })) {
