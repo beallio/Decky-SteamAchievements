@@ -39,6 +39,13 @@ Runtime facts learned (for a plugin):
 
 ## 0. TL;DR for the next agent
 
+> **HISTORICAL / SUPERSEDED — read the CONCLUSION at the top instead.** §0 and §1
+> were written mid-investigation, before the root cause was confirmed. They record
+> intermediate hypotheses (some wrong) and are kept only as the reasoning trail.
+> The CONCLUSION is authoritative: the bar is hidden by the added
+> `if (!this.props.onSeek) return null;` guard (CL 10546225), restored by supplying
+> `onSeek`, proven live.
+
 The compact **"ACHIEVEMENTS  44/82  ▮▮▮▯" bar beside the Play button** (with a blue completion ribbon at 100%) is a real component: webpack **module 56262**, class **`MiniAchievements`**, mounted inside **`GameStatsSection`** (the app-details "PlayBar" row). Its code is present and byte-stable in **every** SteamTracking build from 2025-07 → 2026-07-24 **and** in the user's live Deck build (CL 10840511). The plan's "removal commit" `79adf888` is actually a **Controller-Settings** update with zero achievement changes.
 
 User confirmed the reference screenshot is from an **older build**.
@@ -63,11 +70,19 @@ So **statically, the bar SHOULD render on the user's Deck** for any installed ga
 
 ---
 
-## 1. THE OPEN QUESTION (do this first)
+## 1. THE OPEN QUESTION (do this first) — RESOLVED (historical)
+
+> **RESOLVED — superseded by CONCLUSION.** Both questions below were answered.
+> (1) `GameStatsSection` IS rendered, not orphaned. (2) The bar is hidden because
+> the Deck header renders its PlayBar with `onSeek: void 0` and Valve added the
+> `if (!this.props.onSeek) return null;` guard — NOT a feature-block or a newer
+> channel. Confirmed live on the user's Deck (Brotato: onSeek undefined,
+> `MiniAchievements` count 0; injecting onSeek → count 1, "ACHIEVEMENTS 79/179").
+> The text below is the original open-question framing, kept for the trail.
 
 **Superseded question (answered):** ~~Is `GameStatsSection` rendered or orphaned?~~ → It IS rendered; chain intact in CL 10840511 (see §0 UPDATE, §4b).
 
-**Current open question:** Given the render chain is intact on the Deck's build, *why* does the user not see the bar? Test, in order: (a) live DOM read on an open game page — does the `MiniAchievements` element actually appear? (b) runtime `BIsFeatureBlocked(3)` — is achievements feature gated? (c) is there a Steam build/channel newer than CL 10840511 (beta/preview) where the render site changed?
+**Original open question (now answered — see CONCLUSION):** Given the render chain is intact on the Deck's build, *why* does the user not see the bar? → the PlayBar passes `onSeek: void 0` and the added `!onSeek` guard returns null.
 
 Two ways to run the DOM read:
 
@@ -213,7 +228,7 @@ Implication: user believes their own Deck **lost** this bar. If true and the cod
 - Phase 3 (removal diff): **done, and it falsified the premise** — see §5.
 - Phase 4 (locate component): **done** — §4.
 - Phases 5–8 (names/deps/render/CSS): **mostly done** for `MiniAchievements` — §4. Still open: exact hashed CSS values from the `.css` (map the [VALVE] names → hashes → rules), and pre/post CSS comparison of the achievement rules.
-- Phase 9 (removal analysis): **blocked on §1** (rendered vs orphaned).
+- Phase 9 (removal analysis): **done** — removal = the added `!onSeek` guard (CL 10546225); see CONCLUSION and `research/diffs/removal_onSeek_guard.md`. (The earlier "blocked on §1 / rendered vs orphaned" framing is superseded.)
 - Phase 10 (restoration): not started. If §1 shows orphaned, restoration = re-insert `GameStatsSection`/`MiniAchievements` (or reimplement it in the Decky plugin, patching the app-details route). If §1 shows still-rendered, there is nothing to restore — pivot to diagnosing the user's specific device/channel.
 - Deliverables (REPORT.md, RECREATED_COMPONENT.tsx, NAME_EVIDENCE.md, modules/, diffs/): **not written yet** — gate on §1.
 
