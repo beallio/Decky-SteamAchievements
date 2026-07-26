@@ -1,29 +1,24 @@
-// Restore Valve's achievement progress bar on the app-details page by supplying
-// the onSeek prop that MiniAchievements now requires. Valve's component remains
-// responsible for rendering and live achievement data.
+// Restore Valve's achievement progress bar without remounting any app-details
+// components. The MiniAchievements class is captured read-only from the Big
+// Picture fiber tree, then its own render method is patched to supply onSeek.
 
 import { routerHook } from "@decky/api";
-import {
-  afterPatch,
-  findInReactTree,
-  findModuleExport,
-  type Patch,
-} from "@decky/ui";
+import { afterPatch } from "@decky/ui";
 import * as log from "./log";
 
 const APP_ROUTE = "/library/app/:appid";
-const ACHIEVEMENT_SEEK_SIGNATURE = 'onSeek("achievements")';
-const VALVE_CLASS_KEYS = ["MiniAchievements", "GameStatsSection"] as const;
+const MAX_ANCESTOR_DEPTH = 2_000;
+const MAX_FIBER_NODES = 300_000;
+const MAX_FIBER_ANCHORS = 2_000;
+const INSTANCE_PATCH_FLAG = "__achRestored";
 
-let valveClassNames: ReadonlySet<string> | undefined;
-
-function safeDebug(...args: unknown[]): void {
-  try {
-    log.debug("patch", ...args);
-  } catch {
-    // Logging must never escape into Steam's render path.
-  }
-}
+type SeekHandler = (section: string) => void;
+type PrototypePatch = { unpatch: () => void };
+type AfterPatch = (
+  target: any,
+  method: string,
+  handler: (this: any, args: any[], result: any) => any,
+) => PrototypePatch;
 
 function safeInfo(...args: unknown[]): void {
   try {
@@ -41,197 +36,328 @@ function safeWarn(...args: unknown[]): void {
   }
 }
 
-function hasOwn(value: object, property: PropertyKey): boolean {
-  return Object.prototype.hasOwnProperty.call(value, property);
-}
-
-function sourceHasValveSignature(candidate: unknown): boolean {
-  if (typeof candidate !== "function") return false;
+/** Match MiniAchievements by the stable source signature in its class body. */
+export function hasAchievementRenderSignature(type: unknown): boolean {
+  if (typeof type !== "function") return false;
 
   try {
-    // Respect Steam/Decky's wrapper-preserved toString implementations so the
-    // stable source signature remains visible through patched/observer types.
-    const source = candidate.toString();
+    const source = type.toString();
     return (
-      source.includes(ACHIEVEMENT_SEEK_SIGNATURE) ||
-      source.includes("onSeek('achievements')") ||
-      VALVE_CLASS_KEYS.some(
-        (key) =>
-          source.includes(`.${key}`) ||
-          source.includes(`["${key}"]`) ||
-          source.includes(`['${key}']`),
-      )
+      source.includes('onSeek("achievements")') ||
+      source.includes("onSeek('achievements')")
     );
   } catch {
     return false;
   }
 }
 
-function componentHasValveSignature(type: unknown): boolean {
-  try {
-    const component = type as any;
-    const wrapped = component?.type;
-    const candidates = [
-      component,
-      component?.render,
-      component?.prototype?.render,
-      wrapped,
-      wrapped?.render,
-      wrapped?.prototype?.render,
-    ];
+/** Supply onSeek without replacing a non-null handler already provided by Valve. */
+export function withOnSeek(props: any, handler: SeekHandler): any {
+  if (props === null || typeof props !== "object") return props;
 
-    return candidates.some(sourceHasValveSignature);
+  try {
+    if (props.onSeek != null) return props;
+    return { ...props, onSeek: handler };
+  } catch {
+    return props;
+  }
+}
+
+/** Find the nearest ancestor state node matching a stable capability predicate. */
+export function findAncestorStateNode(
+  fiber: any,
+  predicate: (stateNode: any) => boolean,
+  maxDepth = MAX_ANCESTOR_DEPTH,
+): any | undefined {
+  try {
+    let current = fiber;
+    for (let depth = 0; current && depth < maxDepth; depth += 1) {
+      const stateNode = current.stateNode;
+      if (stateNode != null && predicate(stateNode)) return stateNode;
+      current = current.return;
+    }
+  } catch {
+    // Fibers are Steam internals and may change while the tree is inspected.
+  }
+
+  return undefined;
+}
+
+/** Bounded, read-only DFS over React fiber child/sibling links. */
+export function findClassInFiberTree(
+  rootFiber: any,
+  predicate: (type: any) => boolean,
+  maxNodes = MAX_FIBER_NODES,
+): any | undefined {
+  if (!rootFiber || maxNodes <= 0) return undefined;
+
+  try {
+    const stack = [rootFiber];
+    let visited = 0;
+
+    while (stack.length > 0 && visited < maxNodes) {
+      const fiber = stack.pop();
+      if (!fiber) continue;
+      visited += 1;
+
+      const type = fiber.elementType || fiber.type;
+      if (type && predicate(type)) return type;
+
+      // Push sibling first so the child is visited first.
+      if (fiber.sibling) stack.push(fiber.sibling);
+      if (fiber.child) stack.push(fiber.child);
+    }
+  } catch {
+    // Fail closed if a live fiber is detached or exposes a throwing getter.
+  }
+
+  return undefined;
+}
+
+function getFiberFromElement(element: any): any | undefined {
+  if (!element) return undefined;
+
+  try {
+    const key = Object.keys(element).find(
+      (candidate) =>
+        candidate.startsWith("__reactFiber$") ||
+        candidate.startsWith("__reactContainer$"),
+    );
+    return key ? element[key] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function getFiberFromDocument(document: any): any | undefined {
+  try {
+    const bodyFiber = getFiberFromElement(document?.body);
+    if (bodyFiber) return bodyFiber;
+
+    if (typeof document?.querySelectorAll !== "function") return undefined;
+    const elements = document.querySelectorAll("*");
+    let inspected = 0;
+    for (const element of elements ?? []) {
+      if (inspected >= MAX_FIBER_ANCHORS) break;
+      inspected += 1;
+      const fiber = getFiberFromElement(element);
+      if (fiber) return fiber;
+    }
+  } catch {
+    // Popup documents can disappear during navigation.
+  }
+
+  return undefined;
+}
+
+function popupValues(collection: any): any[] {
+  try {
+    if (!collection) return [];
+    if (Array.isArray(collection)) return collection;
+    if (typeof collection.values === "function") {
+      return Array.from(collection.values());
+    }
+    if (typeof collection[Symbol.iterator] === "function") {
+      return Array.from(collection);
+    }
+  } catch {
+    // Treat malformed popup collections as empty.
+  }
+
+  return [];
+}
+
+function isBigPicturePopup(popup: any, document: any): boolean {
+  try {
+    const titles = [
+      popup?.m_strTitle,
+      popup?.title,
+      popup?.m_popup?.name,
+      document?.title,
+    ];
+    return titles.some((title) => title === "Steam Big Picture Mode");
   } catch {
     return false;
   }
-}
-
-function resolveValveClassNames(): ReadonlySet<string> {
-  if (valveClassNames) return valveClassNames;
-
-  const resolved = new Set<string>();
-  try {
-    const classMap = findModuleExport((candidate: unknown) => {
-      if (!candidate || typeof candidate !== "object") return false;
-      return VALVE_CLASS_KEYS.every((key) => hasOwn(candidate, key));
-    }) as Record<string, unknown> | undefined;
-
-    for (const key of VALVE_CLASS_KEYS) {
-      const className = classMap?.[key];
-      if (typeof className === "string" && className) resolved.add(className);
-    }
-  } catch (error) {
-    safeWarn("could not resolve Valve achievement class names", error);
-  }
-
-  valveClassNames = resolved;
-  return resolved;
-}
-
-function classNameHasValveSignature(className: unknown): boolean {
-  if (typeof className !== "string") return false;
-  const tokens = new Set(className.split(/\s+/).filter(Boolean));
-
-  if (VALVE_CLASS_KEYS.some((key) => tokens.has(key))) return true;
-  for (const resolvedClassName of resolveValveClassNames()) {
-    if (tokens.has(resolvedClassName)) return true;
-  }
-
-  return false;
 }
 
 /**
- * Match only Valve's suppressed achievement PlayBar/MiniAchievements element.
- * A Valve source/CSS signature is required before checking the prop shape.
+ * Locate the app-details document from SharedJSContext's popup manager.
+ * Prefer the named BPM popup, but accept any popup with a readable fiber.
  */
-export function isSuppressedAchievementPlayBar(node: any): boolean {
+export function getBigPictureDocument(popupManager: any): any | undefined {
   try {
-    if (!node || typeof node !== "object") return false;
-    const props = node.props;
-    if (!props || typeof props !== "object") return false;
+    const collection =
+      popupManager?.m_rgPopups ??
+      (typeof popupManager?.GetPopups === "function"
+        ? popupManager.GetPopups()
+        : undefined);
+    const candidates: Array<{ document: any; isBigPicture: boolean }> = [];
 
-    const hasValveSignature =
-      componentHasValveSignature(node.type) ||
-      classNameHasValveSignature(props.className);
-    if (!hasValveSignature) return false;
+    for (const popup of popupValues(collection)) {
+      try {
+        const document = popup?.m_popup?.document;
+        if (!document || !getFiberFromDocument(document)) continue;
+        candidates.push({
+          document,
+          isBigPicture: isBigPicturePopup(popup, document),
+        });
+      } catch {
+        // Skip individual popups that are closing or malformed.
+      }
+    }
 
     return (
-      hasOwn(props, "onSeek") &&
-      hasOwn(props, "details") &&
-      hasOwn(props, "overview") &&
-      props.onSeek == null
+      candidates.find((candidate) => candidate.isBigPicture)?.document ??
+      candidates[0]?.document
     );
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-/** Supply onSeek only to a signature-anchored suppressed element. */
-export function injectOnSeek(
-  node: any,
-  handler: (section: string) => void,
-): boolean {
+/** Capture MiniAchievements from the live BPM fiber tree without wrapping it. */
+export function captureMiniAchievementsClass(
+  popupManager: any,
+): any | undefined {
   try {
-    if (!isSuppressedAchievementPlayBar(node)) return false;
-    node.props.onSeek = handler;
-    return node.props.onSeek === handler;
+    const document = getBigPictureDocument(popupManager);
+    let rootFiber = getFiberFromDocument(document);
+    if (!rootFiber) return undefined;
+
+    for (
+      let depth = 0;
+      rootFiber?.return && depth < MAX_ANCESTOR_DEPTH;
+      depth += 1
+    ) {
+      rootFiber = rootFiber.return;
+    }
+
+    return findClassInFiberTree(
+      rootFiber,
+      hasAchievementRenderSignature,
+      MAX_FIBER_NODES,
+    );
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-/** Install the app-details route patch and return a fail-closed disposer. */
+/** Resolve Valve's app-details section-seek controller from an instance fiber. */
+export function resolveSeekController(instance: any): any | undefined {
+  try {
+    const fiber =
+      instance?._reactInternals ?? instance?._reactInternalFiber;
+    return findAncestorStateNode(
+      fiber,
+      (stateNode) => typeof stateNode?.SeekToSection === "function",
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Patch MiniAchievements.prototype.render without wrapping/remounting the class.
+ * The first intercepted render installs durable props and queues a fresh commit.
+ */
+export function patchMiniAchievementsRender(
+  MiniClass: any,
+  dependencies: { afterPatch: AfterPatch },
+): PrototypePatch | undefined {
+  try {
+    return dependencies.afterPatch(
+      MiniClass.prototype,
+      "render",
+      function (this: any, _args: any[], result: any): any {
+        try {
+          if (
+            Object.prototype.hasOwnProperty.call(this, INSTANCE_PATCH_FLAG)
+          ) {
+            return result;
+          }
+
+          const instance = this;
+          const onSeek: SeekHandler = (section) => {
+            try {
+              const controller = resolveSeekController(instance);
+              const seek = controller?.SeekToSection;
+              if (typeof seek === "function") {
+                seek.call(controller, section);
+              }
+            } catch {
+              // Native currently has no achievements target; activation no-ops.
+            }
+          };
+          let store = withOnSeek(instance.props, onSeek);
+
+          Object.defineProperty(instance, INSTANCE_PATCH_FLAG, {
+            configurable: true,
+            value: true,
+          });
+          Object.defineProperty(instance, "props", {
+            configurable: true,
+            get: () => store,
+            set: (value) => {
+              store = withOnSeek(value, onSeek);
+            },
+          });
+
+          setTimeout(() => {
+            try {
+              if (typeof instance.forceUpdate === "function") {
+                instance.forceUpdate();
+              }
+            } catch {
+              // A detached instance is harmless; never throw into Steam.
+            }
+          }, 0);
+        } catch {
+          // The current render remains unchanged if instance patching fails.
+        }
+
+        return result;
+      },
+    );
+  } catch (error) {
+    safeWarn("MiniAchievements render patch failed", error);
+    return undefined;
+  }
+}
+
+/** Injectable Steam-global boundary used by the route callback. */
+export const steamGlobals = {
+  getPopupManager(): any | undefined {
+    try {
+      return (window as any)?.g_PopupManager;
+    } catch {
+      return undefined;
+    }
+  },
+};
+
+/** Install the app-details capture trigger and return a fail-closed disposer. */
 export function installAchievementBarPatch(): () => void {
   safeInfo("installing achievement bar restore patch");
 
   let routePatch: any;
-  let currentOwner: any;
-  let currentRenderPatch: Patch | undefined;
-
-  const onSeek = (section: string): void => {
-    safeDebug("achievement stat activated", section);
-  };
-
-  const disposeCurrentRenderPatch = (): boolean => {
-    if (!currentRenderPatch) {
-      currentOwner = undefined;
-      return true;
-    }
-
-    try {
-      currentRenderPatch.unpatch();
-      currentRenderPatch = undefined;
-      currentOwner = undefined;
-      return true;
-    } catch (error) {
-      safeWarn("renderFunc unpatch failed", error);
-      return false;
-    }
-  };
+  let prototypePatch: PrototypePatch | undefined;
 
   try {
     routePatch = routerHook.addPatch(APP_ROUTE, (props: any) => {
       try {
-        const owner = props?.children?.props;
-
-        if (owner !== currentOwner && !disposeCurrentRenderPatch()) {
-          return props;
+        if (!prototypePatch) {
+          const MiniClass = captureMiniAchievementsClass(
+            steamGlobals.getPopupManager(),
+          );
+          if (MiniClass) {
+            prototypePatch = patchMiniAchievementsRender(MiniClass, {
+              afterPatch: afterPatch as AfterPatch,
+            });
+          }
         }
-
-        if (typeof owner?.renderFunc !== "function") {
-          safeWarn("route renderFunc is missing or not callable");
-          return props;
-        }
-
-        if (owner === currentOwner && currentRenderPatch) {
-          return props;
-        }
-
-        const renderPatch = afterPatch(
-          owner,
-          "renderFunc",
-          (_args: any[], renderedTree: any) => {
-            try {
-              const target = findInReactTree(
-                renderedTree,
-                isSuppressedAchievementPlayBar,
-              );
-              if (!target) {
-                safeDebug("no suppressed achievement PlayBar found in rendered tree");
-              } else if (!injectOnSeek(target, onSeek)) {
-                safeWarn("suppressed achievement PlayBar could not be patched");
-              }
-            } catch (error) {
-              safeWarn("rendered achievement tree patch failed", error);
-            }
-            return renderedTree;
-          },
-        );
-
-        currentOwner = owner;
-        currentRenderPatch = renderPatch;
       } catch (error) {
-        safeWarn("achievement route patch failed", error);
+        safeWarn("achievement class capture failed", error);
       }
 
       return props;
@@ -249,7 +375,14 @@ export function installAchievementBarPatch(): () => void {
       }
     }
 
-    disposeCurrentRenderPatch();
+    if (prototypePatch) {
+      try {
+        prototypePatch.unpatch();
+      } catch (error) {
+        safeWarn("prototype unpatch failed", error);
+      }
+    }
+
     safeInfo("achievement bar patch removed");
   };
 }

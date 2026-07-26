@@ -23,8 +23,9 @@ so the guard now returns `null` and the bar disappears. Supplying a real `onSeek
 makes Valve's own component render again — confirmed by injecting `onSeek` into
 the live instance on-device (see the screenshot above).
 
-This plugin restores it the same way: it patches the app-details route to feed
-the PlayBar the `onSeek` prop Valve withheld. **It does not reimplement the bar.**
+This plugin patches `MiniAchievements`' own `render` to supply the withheld
+`onSeek` prop, then schedules a re-render so React commits Valve's component.
+**It does not reimplement the bar.**
 
 Full investigation: [`HANDOFF.md`](HANDOFF.md) and
 [`research/diffs/removal_onSeek_guard.md`](research/diffs/removal_onSeek_guard.md).

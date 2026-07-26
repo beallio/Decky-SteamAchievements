@@ -65,3 +65,18 @@ a few controlled iterations to pin each boundary's finder (the chain between `le
 `Qe` includes several focus/flow wrappers). Study `createStepHandler` semantics
 (internal to `createReactTreePatcher`) or mirror an existing app-details deep-patch
 plugin (e.g. SteamGridDB) for the exact finder shape.
+
+## Final mechanism (supersedes the above)
+
+The tree-descent / `createReactTreePatcher` approach was rejected after live
+testing: wrapping any component in the app-details subtree remounts Steam's
+content components, exposes the store-tabs variant, and breaks the play-row
+gradient.
+
+The shipped fix captures `MiniAchievements` read-only through
+`g_PopupManager` → Big Picture document → fiber DFS, then `afterPatch`es its
+prototype `render`. On the first intercepted render it installs a persistent
+`props` getter that supplies `onSeek` and schedules an out-of-band
+`forceUpdate()`. This restores Valve's component without a remount or CSS
+changes; [`assets/achievement-bar-restored.png`](../assets/achievement-bar-restored.png)
+is the target appearance.

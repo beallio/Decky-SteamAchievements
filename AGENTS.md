@@ -36,11 +36,17 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   `R(id)` (the `R.c` cache reads empty via that handle).
 - Achievements store: `R(78057).H.GetAchievements(appid)` → `{nTotal,nAchieved,…}`
   (id is build-specific — resolve by signature, not hardcode).
-- `MiniAchievements` is a **mobx `observer`** (its `render` is non-configurable);
-  patch **props**/parent, not `render`.
-- Match components by stable signatures (e.g. the `onSeek("achievements")` source
-  string, CSS-module key names like `MiniAchievements`/`GameStatsSection`), not by
-  minified locals or hashed classnames — those churn every Steam update.
+- `afterPatch(MiniAchievements.prototype, "render", …)` works on the current
+  build. Supply `onSeek` through a persistent instance `props` getter, then
+  schedule `forceUpdate()` out of band so React commits Valve's component.
+- Capture the class read-only from SharedJSContext through `g_PopupManager` →
+  Big Picture document → React fiber DFS, matching the whole class source by
+  `onSeek("achievements")`.
+- Never tree-descend or use `wrapReactClass` for this patch: wrapping remounts
+  app-details components, exposes the store-tabs variant, and breaks the play-row
+  gradient.
+- Match components by stable signatures, not minified locals or hashed
+  classnames — those churn every Steam update.
 
 ## Orchestration
 
