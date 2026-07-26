@@ -1,4 +1,5 @@
-import { definePlugin, staticClasses } from "@decky/ui";
+import { definePlugin } from "@decky/api";
+import { staticClasses } from "@decky/ui";
 import { FaTrophy } from "react-icons/fa6";
 import { installAchievementBarPatch } from "./achievementBar";
 import * as log from "./log";

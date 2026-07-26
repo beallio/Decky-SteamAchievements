@@ -5,7 +5,14 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
 
-const PLUGIN_FOLDER_NAME = "Decky-Metadata";
+// Derive the plugin identity from plugin.json so the packaged folder/zip always
+// match this plugin (never a hardcoded sibling name).
+const PLUGIN_FOLDER_NAME = JSON.parse(
+  fs.readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "plugin.json"),
+    "utf8",
+  ),
+).name;
 const CRC_TABLE = makeCrcTable();
 
 // Mirrors the version grammar the self-updater parses (backend discovery):
@@ -44,7 +51,7 @@ function main() {
     throw new Error("Missing dist/index.js. Run npm run build before packaging.");
   }
 
-  const stagingBase = "/tmp/Decky-Metadata";
+  const stagingBase = "/tmp/Decky-SteamAchievements";
   const stagingRoot = path.join(stagingBase, "build-package");
   const stagingPlugin = path.join(stagingRoot, PLUGIN_FOLDER_NAME);
   assertPathInside(stagingBase, stagingRoot);
@@ -83,7 +90,7 @@ function main() {
     }));
 
   // Fixed output filename; the version+hash lives inside plugin.json/package.json.
-  const zipPath = path.join(repoRoot, "Decky-Metadata.zip");
+  const zipPath = path.join(repoRoot, `${PLUGIN_FOLDER_NAME}.zip`);
   fs.rmSync(zipPath, { force: true });
   writeZip(zipPath, entries);
   fs.rmSync(stagingRoot, { recursive: true, force: true });
