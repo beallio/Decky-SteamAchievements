@@ -56,7 +56,11 @@ if [[ -f main.py ]]; then
 fi
 
 # --- backend: Python tests ---------------------------------------------------
-if [[ -d tests ]]; then
+# tests/ holds the TypeScript suite too, so its mere existence does not imply Python
+# tests. pytest exits 5 ("no tests collected") when there are none, which fails the
+# gate under `set -e` on a perfectly healthy tree. Only run it when a Python test
+# file actually exists.
+if [[ -d tests ]] && find tests \( -name 'test_*.py' -o -name '*_test.py' \) -print -quit | grep -q .; then
   uv run --with pytest -- pytest -q
 fi
 
