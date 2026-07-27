@@ -11,6 +11,7 @@ const MAX_ANCESTOR_DEPTH = 2_000;
 const MAX_FIBER_NODES = 300_000;
 const MAX_FIBER_ANCHORS = 2_000;
 const INSTANCE_PATCH_FLAG = "__achRestored";
+const CAPTURE_RETRY_DELAYS_MS = [0, 50, 250, 1_000] as const;
 
 type SeekHandler = (section: string) => void;
 type PrototypePatch = { unpatch: () => void };
@@ -23,6 +24,14 @@ type AfterPatch = (
   method: string,
   handler: (this: any, args: any[], result: any) => any,
 ) => PrototypePatch;
+
+function safeDebug(...args: unknown[]): void {
+  try {
+    log.debug("patch", ...args);
+  } catch {
+    // Logging must never escape into Steam's render path.
+  }
+}
 
 function safeInfo(...args: unknown[]): void {
   try {
@@ -373,49 +382,156 @@ export function installAchievementBarPatch(): () => void {
   safeInfo("installing achievement bar restore patch");
 
   let routePatch: any;
+  let routeRenderOwner: any;
+  let routeRenderPatch: PrototypePatch | undefined;
   let prototypePatch: PrototypePatch | undefined;
-  let attemptScheduled = false;
-  let attemptTimer: ReturnType<typeof setTimeout> | undefined;
+  let captureBurstActive = false;
+  let captureAttemptIndex = 0;
+  let captureTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+
+  const finishCaptureBurst = (): void => {
+    captureTimer = undefined;
+    captureBurstActive = false;
+    captureAttemptIndex = 0;
+  };
+
+  const cancelCaptureBurst = (): void => {
+    if (captureTimer !== undefined) {
+      try {
+        clearTimeout(captureTimer);
+      } catch (error) {
+        safeWarn("capture timer cleanup failed", error);
+      }
+    }
+    finishCaptureBurst();
+  };
+
+  const disposeRouteRenderPatch = (): boolean => {
+    if (!routeRenderPatch) {
+      routeRenderOwner = undefined;
+      return true;
+    }
+
+    try {
+      routeRenderPatch.unpatch();
+      routeRenderPatch = undefined;
+      routeRenderOwner = undefined;
+      return true;
+    } catch (error) {
+      safeWarn("route render trigger unpatch failed", error);
+      return false;
+    }
+  };
+
+  let scheduleNextCaptureAttempt: () => void;
 
   const attemptCaptureAndPatch = (): void => {
     try {
-      if (disposed || prototypePatch) return;
+      if (disposed || prototypePatch) {
+        finishCaptureBurst();
+        return;
+      }
 
       const { MiniClass, instances } = captureMiniAchievements(
         steamGlobals.getPopupManager(),
       );
-      if (!MiniClass) return;
+      if (!MiniClass) {
+        safeDebug("MiniAchievements is not mounted; capture will retry if scheduled");
+        scheduleNextCaptureAttempt();
+        return;
+      }
 
       const patch = patchMiniAchievementsRender(MiniClass, {
         afterPatch: afterPatch as AfterPatch,
       });
-      if (!patch) return;
+      if (!patch) {
+        finishCaptureBurst();
+        return;
+      }
 
       prototypePatch = patch;
       for (const instance of instances) {
         restoreInstance(instance);
       }
+      finishCaptureBurst();
+      safeInfo(
+        "achievement class captured and patched",
+        `${instances.length} mounted instance(s) refreshed`,
+      );
     } catch (error) {
+      finishCaptureBurst();
       safeWarn("achievement class capture failed", error);
+    }
+  };
+
+  scheduleNextCaptureAttempt = (): void => {
+    try {
+      if (disposed || prototypePatch) {
+        finishCaptureBurst();
+        return;
+      }
+
+      const delay = CAPTURE_RETRY_DELAYS_MS[captureAttemptIndex];
+      if (delay === undefined) {
+        finishCaptureBurst();
+        return;
+      }
+
+      captureAttemptIndex += 1;
+      captureTimer = setTimeout(() => {
+        captureTimer = undefined;
+        attemptCaptureAndPatch();
+      }, delay);
+    } catch (error) {
+      finishCaptureBurst();
+      safeWarn("achievement capture scheduling failed", error);
+    }
+  };
+
+  const scheduleCaptureBurst = (): void => {
+    try {
+      if (disposed || prototypePatch || captureBurstActive) return;
+
+      captureBurstActive = true;
+      captureAttemptIndex = 0;
+      scheduleNextCaptureAttempt();
+    } catch (error) {
+      finishCaptureBurst();
+      safeWarn("achievement capture burst failed", error);
     }
   };
 
   try {
     routePatch = routerHook.addPatch(APP_ROUTE, (props: any) => {
       try {
-        if (!disposed && !prototypePatch && !attemptScheduled) {
-          attemptScheduled = true;
-          attemptTimer = setTimeout(() => {
-            attemptTimer = undefined;
-            attemptScheduled = false;
-            attemptCaptureAndPatch();
-          }, 0);
+        const owner = props?.children?.props;
+
+        if (owner !== routeRenderOwner && !disposeRouteRenderPatch()) {
+          return props;
         }
+
+        if (typeof owner?.renderFunc !== "function") {
+          safeDebug("app-details route renderFunc is unavailable");
+          return props;
+        }
+
+        if (!routeRenderPatch) {
+          routeRenderPatch = (afterPatch as AfterPatch)(
+            owner,
+            "renderFunc",
+            (_args: any[], renderedTree: any): any => {
+              scheduleCaptureBurst();
+              return renderedTree;
+            },
+          );
+          routeRenderOwner = owner;
+        }
+
+        // Covers plugin installation while an app-details page is already committed.
+        scheduleCaptureBurst();
       } catch (error) {
-        attemptScheduled = false;
-        attemptTimer = undefined;
-        safeWarn("achievement class capture scheduling failed", error);
+        safeWarn("route render trigger installation failed", error);
       }
 
       return props;
@@ -426,16 +542,9 @@ export function installAchievementBarPatch(): () => void {
 
   return () => {
     disposed = true;
+    cancelCaptureBurst();
 
-    if (attemptTimer !== undefined) {
-      try {
-        clearTimeout(attemptTimer);
-      } catch (error) {
-        safeWarn("capture timer cleanup failed", error);
-      }
-      attemptTimer = undefined;
-      attemptScheduled = false;
-    }
+    disposeRouteRenderPatch();
 
     if (routePatch) {
       try {

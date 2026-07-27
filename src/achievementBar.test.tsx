@@ -61,6 +61,36 @@ function popup(document: object, title = ""): object {
   };
 }
 
+function installMethodPatchMock(): Array<{
+  target: any;
+  method: string;
+  unpatch: ReturnType<typeof vi.fn>;
+}> {
+  const patches: Array<{
+    target: any;
+    method: string;
+    unpatch: ReturnType<typeof vi.fn>;
+  }> = [];
+
+  mocks.afterPatch.mockImplementation((target, method, handler) => {
+    const original = target?.[method];
+    if (typeof original === "function") {
+      target[method] = function (this: any, ...args: any[]) {
+        const result = original.apply(this, args);
+        return handler.call(this, args, result);
+      };
+    }
+
+    const unpatch = vi.fn(() => {
+      if (typeof original === "function") target[method] = original;
+    });
+    patches.push({ target, method, unpatch });
+    return { unpatch };
+  });
+
+  return patches;
+}
+
 describe("hasAchievementRenderSignature", () => {
   it("matches double- and single-quoted achievement seek signatures", () => {
     function singleQuotedSignature() {
@@ -497,7 +527,7 @@ describe("installAchievementBarPatch", () => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
     mocks.addPatch.mockImplementation((_path, callback) => callback);
-    mocks.afterPatch.mockReturnValue({ unpatch: vi.fn() });
+    mocks.afterPatch.mockImplementation(() => ({ unpatch: vi.fn() }));
   });
 
   it("defers capture, patches once, and refreshes every mounted instance", () => {
@@ -518,7 +548,8 @@ describe("installAchievementBarPatch", () => {
       .mockReturnValue({
         m_rgPopups: [popup(document, "Steam Big Picture Mode")],
       });
-    const props = Object.freeze({ malformed: true });
+    const routeOwner = { renderFunc: vi.fn(() => ({ rendered: true })) };
+    const props = Object.freeze({ children: { props: routeOwner } });
 
     const dispose = installAchievementBarPatch();
     const callback = routeCallback();
@@ -527,13 +558,18 @@ describe("installAchievementBarPatch", () => {
     expect(callback(props)).toBe(props);
     expect(callback(props)).toBe(props);
     expect(getPopupManager).not.toHaveBeenCalled();
-    expect(mocks.afterPatch).not.toHaveBeenCalled();
+    expect(mocks.afterPatch).toHaveBeenCalledOnce();
+    expect(mocks.afterPatch).toHaveBeenCalledWith(
+      routeOwner,
+      "renderFunc",
+      expect.any(Function),
+    );
     expect(vi.getTimerCount()).toBe(1);
 
     vi.runAllTimers();
 
     expect(getPopupManager).toHaveBeenCalledOnce();
-    expect(mocks.afterPatch).toHaveBeenCalledOnce();
+    expect(mocks.afterPatch).toHaveBeenCalledTimes(2);
     expect(mocks.afterPatch).toHaveBeenCalledWith(
       MiniAchievementsSignatureDouble.prototype,
       "render",
@@ -546,25 +582,41 @@ describe("installAchievementBarPatch", () => {
 
     callback(props);
     vi.runAllTimers();
-    expect(mocks.afterPatch).toHaveBeenCalledOnce();
+    expect(mocks.afterPatch).toHaveBeenCalledTimes(2);
     expect(firstInstance.forceUpdate).toHaveBeenCalledOnce();
     expect(secondInstance.forceUpdate).toHaveBeenCalledOnce();
 
-    const prototypePatch = mocks.afterPatch.mock.results[0].value;
+    const routeRenderPatch = mocks.afterPatch.mock.results[0].value;
+    const prototypePatch = mocks.afterPatch.mock.results[1].value;
     dispose();
     expect(mocks.removePatch).toHaveBeenCalledWith(APP_ROUTE, callback);
+    expect(routeRenderPatch.unpatch).toHaveBeenCalledOnce();
     expect(prototypePatch.unpatch).toHaveBeenCalledOnce();
   });
 
-  it("retries capture on the next render when the class is not yet present", () => {
+  it("retries from a real route render after the initial capture burst expires", () => {
     const manager: any = { m_rgPopups: [] };
     vi.spyOn(steamGlobals, "getPopupManager").mockReturnValue(manager);
+    const routeOwner = {
+      renderFunc: vi.fn(() => ({ rendered: true })),
+    };
+    installMethodPatchMock();
     installAchievementBarPatch();
 
-    expect(routeCallback()({})).toEqual({});
-    expect(mocks.afterPatch).not.toHaveBeenCalled();
+    const routeProps = { children: { props: routeOwner } };
+    expect(routeCallback()(routeProps)).toBe(routeProps);
+    expect(mocks.afterPatch).toHaveBeenCalledWith(
+      routeOwner,
+      "renderFunc",
+      expect.any(Function),
+    );
     vi.runAllTimers();
-    expect(mocks.afterPatch).not.toHaveBeenCalled();
+    expect(
+      mocks.afterPatch.mock.calls.filter(
+        ([target, method]) =>
+          target === MiniAchievementsSignatureDouble.prototype && method === "render",
+      ),
+    ).toHaveLength(0);
 
     manager.m_rgPopups = [
       popup(
@@ -572,14 +624,92 @@ describe("installAchievementBarPatch", () => {
         "Steam Big Picture Mode",
       ),
     ];
-    routeCallback()({});
-    expect(mocks.afterPatch).not.toHaveBeenCalled();
+    const captureCallsBeforeRender = mocks.afterPatch.mock.calls.length;
+    expect(routeOwner.renderFunc()).toEqual({ rendered: true });
+    expect(mocks.afterPatch).toHaveBeenCalledTimes(captureCallsBeforeRender);
     vi.runAllTimers();
 
-    expect(mocks.afterPatch).toHaveBeenCalledOnce();
+    expect(
+      mocks.afterPatch.mock.calls.filter(
+        ([target, method]) =>
+          target === MiniAchievementsSignatureDouble.prototype && method === "render",
+      ),
+    ).toHaveLength(1);
   });
 
-  it("attempts both disposers when removePatch throws", () => {
+  it("finds a class that appears later within one bounded capture burst", () => {
+    const emptyManager = { m_rgPopups: [] };
+    const instance: any = { props: {}, forceUpdate: vi.fn() };
+    const readyManager = {
+      m_rgPopups: [
+        popup(
+          {
+            body: fiberElement({
+              type: MiniAchievementsSignatureDouble,
+              stateNode: instance,
+            }),
+          },
+          "Steam Big Picture Mode",
+        ),
+      ],
+    };
+    const getPopupManager = vi
+      .spyOn(steamGlobals, "getPopupManager")
+      .mockReturnValueOnce(emptyManager)
+      .mockReturnValue(readyManager);
+    const routeOwner = { renderFunc: vi.fn(() => null) };
+
+    installAchievementBarPatch();
+    routeCallback()({ children: { props: routeOwner } });
+
+    vi.advanceTimersByTime(0);
+    expect(getPopupManager).toHaveBeenCalledOnce();
+    expect(instance.props.onSeek).toBeUndefined();
+
+    vi.advanceTimersByTime(50);
+    expect(getPopupManager).toHaveBeenCalledTimes(2);
+    expect(instance.props.onSeek).toEqual(expect.any(Function));
+    vi.runAllTimers();
+    expect(instance.forceUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("coalesces rapid real renders and stops scanning after success", () => {
+    const manager: any = { m_rgPopups: [] };
+    const getPopupManager = vi
+      .spyOn(steamGlobals, "getPopupManager")
+      .mockReturnValue(manager);
+    const routeOwner = { renderFunc: vi.fn(() => "rendered") };
+    installMethodPatchMock();
+    installAchievementBarPatch();
+    routeCallback()({ children: { props: routeOwner } });
+    vi.runAllTimers();
+    expect(getPopupManager).toHaveBeenCalledTimes(4);
+
+    manager.m_rgPopups = [
+      popup(
+        { body: fiberElement({ type: MiniAchievementsSignatureDouble }) },
+        "Steam Big Picture Mode",
+      ),
+    ];
+    routeOwner.renderFunc();
+    routeOwner.renderFunc();
+    routeOwner.renderFunc();
+    expect(vi.getTimerCount()).toBe(1);
+    vi.runAllTimers();
+
+    const callsAfterSuccess = getPopupManager.mock.calls.length;
+    routeOwner.renderFunc();
+    vi.runAllTimers();
+    expect(getPopupManager).toHaveBeenCalledTimes(callsAfterSuccess);
+    expect(
+      mocks.afterPatch.mock.calls.filter(
+        ([target, method]) =>
+          target === MiniAchievementsSignatureDouble.prototype && method === "render",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("attempts every disposer when cleanup operations throw", () => {
     const document = {
       body: fiberElement({ type: MiniAchievementsSignatureDouble }),
     };
@@ -589,25 +719,65 @@ describe("installAchievementBarPatch", () => {
     mocks.removePatch.mockImplementation(() => {
       throw new Error("route removal failed");
     });
+    const routeRenderUnpatch = vi.fn(() => {
+      throw new Error("route render unpatch failed");
+    });
     const prototypeUnpatch = vi.fn(() => {
       throw new Error("prototype removal failed");
     });
-    mocks.afterPatch.mockReturnValue({ unpatch: prototypeUnpatch });
+    mocks.afterPatch.mockImplementation((_target, method) => ({
+      unpatch: method === "renderFunc" ? routeRenderUnpatch : prototypeUnpatch,
+    }));
+    const routeOwner = { renderFunc: vi.fn(() => null) };
 
     const dispose = installAchievementBarPatch();
-    routeCallback()({});
+    routeCallback()({ children: { props: routeOwner } });
     vi.runAllTimers();
 
     expect(() => dispose()).not.toThrow();
+    expect(routeRenderUnpatch).toHaveBeenCalledOnce();
     expect(mocks.removePatch).toHaveBeenCalledOnce();
     expect(prototypeUnpatch).toHaveBeenCalledOnce();
-    expect(mocks.warn).toHaveBeenCalledTimes(2);
+    expect(mocks.warn).toHaveBeenCalledTimes(3);
   });
 
-  it("never throws on accessor/capture failures", () => {
+  it("cancels pending capture work when disposed", () => {
+    const getPopupManager = vi.spyOn(steamGlobals, "getPopupManager");
+    const routeOwner = { renderFunc: vi.fn(() => null) };
+    installMethodPatchMock();
+    const dispose = installAchievementBarPatch();
+    routeCallback()({ children: { props: routeOwner } });
+    const staleWrappedRender = routeOwner.renderFunc;
+
+    expect(vi.getTimerCount()).toBe(1);
+    dispose();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.runAllTimers();
+    expect(getPopupManager).not.toHaveBeenCalled();
+
+    staleWrappedRender();
+    vi.runAllTimers();
+    expect(getPopupManager).not.toHaveBeenCalled();
+  });
+
+  it("never throws on capture failures and allows a later render to retry", () => {
     vi.spyOn(steamGlobals, "getPopupManager").mockImplementation(() => {
       throw new Error("Steam globals unavailable");
     });
+    const routeOwner = { renderFunc: vi.fn(() => "rendered") };
+    installMethodPatchMock();
+    installAchievementBarPatch();
+
+    expect(() =>
+      routeCallback()({ children: { props: routeOwner } }),
+    ).not.toThrow();
+    expect(() => vi.runAllTimers()).not.toThrow();
+    expect(mocks.warn).toHaveBeenCalled();
+    expect(() => routeOwner.renderFunc()).not.toThrow();
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it("ignores malformed route props without scheduling capture", () => {
     installAchievementBarPatch();
     const props = Object.defineProperty({}, "children", {
       get: () => {
@@ -619,6 +789,7 @@ describe("installAchievementBarPatch", () => {
     expect(routeCallback()(props)).toBe(props);
     expect(() => vi.runAllTimers()).not.toThrow();
     expect(mocks.afterPatch).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("returns a safe no-op disposer when registration fails", () => {

@@ -44,6 +44,10 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   `onSeek("achievements")`.
 - Defer capture until after the app-details route commits, then refresh captured
   `MiniAchievements` instances; synchronous route-render capture sees the old tree.
+- `routerHook.addPatch()` transforms the route table; its callback is not a
+  navigation/render event and cannot drive later capture retries by itself.
+- Use an untouched `children.props.renderFunc` after-patch only as the per-render
+  signal, then defer capture and retry briefly until the Big Picture commit is visible.
 - Never tree-descend or use `wrapReactClass` for this patch: wrapping remounts
   app-details components, exposes the store-tabs variant, and breaks the play-row
   gradient.
