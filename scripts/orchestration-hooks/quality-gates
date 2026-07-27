@@ -49,7 +49,9 @@ if [[ -f main.py ]]; then
   python_bin="$(command -v python3 || command -v python)"
   "$python_bin" -m py_compile main.py
   if [[ -d backend ]]; then
-    find backend -name "*.py" -print0 | xargs -0 "$python_bin" -m py_compile
+    # -r/--no-run-if-empty: an empty backend/ must be a no-op, not a py_compile
+    # invocation with zero filenames (which errors and fails the gate).
+    find backend -name "*.py" -print0 | xargs -0 -r "$python_bin" -m py_compile
   fi
 fi
 
