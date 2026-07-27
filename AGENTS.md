@@ -42,6 +42,8 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Capture the class read-only from SharedJSContext through `g_PopupManager` →
   Big Picture document → React fiber DFS, matching the whole class source by
   `onSeek("achievements")`.
+- Defer capture until after the app-details route commits, then refresh captured
+  `MiniAchievements` instances; synchronous route-render capture sees the old tree.
 - Never tree-descend or use `wrapReactClass` for this patch: wrapping remounts
   app-details components, exposes the store-tabs variant, and breaks the play-row
   gradient.

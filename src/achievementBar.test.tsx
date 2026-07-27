@@ -27,13 +27,14 @@ vi.mock("./log", () => ({
 }));
 
 import {
-  captureMiniAchievementsClass,
+  captureMiniAchievements,
   findAncestorStateNode,
   findClassInFiberTree,
   getBigPictureDocument,
   hasAchievementRenderSignature,
   installAchievementBarPatch,
   patchMiniAchievementsRender,
+  restoreInstance,
   resolveSeekController,
   steamGlobals,
   withOnSeek,
@@ -286,29 +287,44 @@ describe("getBigPictureDocument", () => {
   });
 });
 
-describe("captureMiniAchievementsClass", () => {
-  it("composes popup lookup, root climb, and fiber DFS", () => {
-    const miniFiber = { elementType: MiniAchievementsSignatureDouble };
+describe("captureMiniAchievements", () => {
+  it("composes popup lookup, root climb, and fiber DFS to return the class and instances", () => {
+    const firstInstance = { props: {} };
+    const secondInstance = { props: {} };
+    const miniFiber = {
+      elementType: MiniAchievementsSignatureDouble,
+      stateNode: firstInstance,
+      sibling: {
+        type: MiniAchievementsSignatureDouble,
+        stateNode: secondInstance,
+      },
+    };
     const root = { child: { child: miniFiber } };
     const leaf = { return: root };
     const document = { body: fiberElement(leaf) };
 
     expect(
-      captureMiniAchievementsClass({
+      captureMiniAchievements({
         m_rgPopups: [popup(document, "Steam Big Picture Mode")],
       }),
-    ).toBe(MiniAchievementsSignatureDouble);
+    ).toEqual({
+      MiniClass: MiniAchievementsSignatureDouble,
+      instances: [firstInstance, secondInstance],
+    });
   });
 
-  it("returns undefined without throwing when capture data is malformed", () => {
+  it("returns empties without throwing when capture data is malformed", () => {
     const manager = Object.defineProperty({}, "m_rgPopups", {
       get: () => {
         throw new Error("popups unavailable");
       },
     });
 
-    expect(() => captureMiniAchievementsClass(manager)).not.toThrow();
-    expect(captureMiniAchievementsClass(manager)).toBeUndefined();
+    expect(() => captureMiniAchievements(manager)).not.toThrow();
+    expect(captureMiniAchievements(manager)).toEqual({
+      MiniClass: undefined,
+      instances: [],
+    });
   });
 });
 
@@ -424,22 +440,84 @@ describe("patchMiniAchievementsRender", () => {
   });
 });
 
+describe("restoreInstance", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it("installs persistent props and schedules only one refresh per instance", () => {
+    const controller = { SeekToSection: vi.fn() };
+    const instance: any = {
+      props: { details: true },
+      forceUpdate: vi.fn(),
+      _reactInternals: { return: { stateNode: controller } },
+    };
+    const defineProperty = vi.spyOn(Object, "defineProperty");
+
+    restoreInstance(instance);
+    restoreInstance(instance);
+
+    expect(
+      defineProperty.mock.calls.filter(
+        ([target, property]) => target === instance && property === "props",
+      ),
+    ).toHaveLength(1);
+    expect(instance.props).toMatchObject({
+      details: true,
+      onSeek: expect.any(Function),
+    });
+
+    instance.props.onSeek("achievements");
+    expect(controller.SeekToSection).toHaveBeenCalledWith("achievements");
+
+    instance.props = { replacement: true, onSeek: null };
+    expect(instance.props).toMatchObject({
+      replacement: true,
+      onSeek: expect.any(Function),
+    });
+
+    expect(vi.getTimerCount()).toBe(1);
+    vi.runAllTimers();
+    expect(instance.forceUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed without a controller, forceUpdate, or usable instance", () => {
+    const instance: any = { props: {} };
+
+    expect(() => restoreInstance(instance)).not.toThrow();
+    expect(() => instance.props.onSeek("achievements")).not.toThrow();
+    expect(() => restoreInstance(undefined)).not.toThrow();
+    expect(() => vi.runAllTimers()).not.toThrow();
+  });
+});
+
 describe("installAchievementBarPatch", () => {
   beforeEach(() => {
-    vi.useRealTimers();
+    vi.useFakeTimers();
     vi.restoreAllMocks();
     vi.clearAllMocks();
     mocks.addPatch.mockImplementation((_path, callback) => callback);
     mocks.afterPatch.mockReturnValue({ unpatch: vi.fn() });
   });
 
-  it("registers the route patch, returns props untouched, and patches once", () => {
+  it("defers capture, patches once, and refreshes every mounted instance", () => {
+    const firstInstance: any = { props: {}, forceUpdate: vi.fn() };
+    const secondInstance: any = { props: {}, forceUpdate: vi.fn() };
     const document = {
-      body: fiberElement({ type: MiniAchievementsSignatureDouble }),
+      body: fiberElement({
+        type: MiniAchievementsSignatureDouble,
+        stateNode: firstInstance,
+        sibling: {
+          type: MiniAchievementsSignatureDouble,
+          stateNode: secondInstance,
+        },
+      }),
     };
-    vi.spyOn(steamGlobals, "getPopupManager").mockReturnValue({
-      m_rgPopups: [popup(document, "Steam Big Picture Mode")],
-    });
+    const getPopupManager = vi
+      .spyOn(steamGlobals, "getPopupManager")
+      .mockReturnValue({
+        m_rgPopups: [popup(document, "Steam Big Picture Mode")],
+      });
     const props = Object.freeze({ malformed: true });
 
     const dispose = installAchievementBarPatch();
@@ -448,12 +526,29 @@ describe("installAchievementBarPatch", () => {
     expect(mocks.addPatch).toHaveBeenCalledWith(APP_ROUTE, expect.any(Function));
     expect(callback(props)).toBe(props);
     expect(callback(props)).toBe(props);
+    expect(getPopupManager).not.toHaveBeenCalled();
+    expect(mocks.afterPatch).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(1);
+
+    vi.runAllTimers();
+
+    expect(getPopupManager).toHaveBeenCalledOnce();
     expect(mocks.afterPatch).toHaveBeenCalledOnce();
     expect(mocks.afterPatch).toHaveBeenCalledWith(
       MiniAchievementsSignatureDouble.prototype,
       "render",
       expect.any(Function),
     );
+    expect(firstInstance.props.onSeek).toEqual(expect.any(Function));
+    expect(secondInstance.props.onSeek).toEqual(expect.any(Function));
+    expect(firstInstance.forceUpdate).toHaveBeenCalledOnce();
+    expect(secondInstance.forceUpdate).toHaveBeenCalledOnce();
+
+    callback(props);
+    vi.runAllTimers();
+    expect(mocks.afterPatch).toHaveBeenCalledOnce();
+    expect(firstInstance.forceUpdate).toHaveBeenCalledOnce();
+    expect(secondInstance.forceUpdate).toHaveBeenCalledOnce();
 
     const prototypePatch = mocks.afterPatch.mock.results[0].value;
     dispose();
@@ -468,6 +563,8 @@ describe("installAchievementBarPatch", () => {
 
     expect(routeCallback()({})).toEqual({});
     expect(mocks.afterPatch).not.toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(mocks.afterPatch).not.toHaveBeenCalled();
 
     manager.m_rgPopups = [
       popup(
@@ -476,6 +573,8 @@ describe("installAchievementBarPatch", () => {
       ),
     ];
     routeCallback()({});
+    expect(mocks.afterPatch).not.toHaveBeenCalled();
+    vi.runAllTimers();
 
     expect(mocks.afterPatch).toHaveBeenCalledOnce();
   });
@@ -497,6 +596,7 @@ describe("installAchievementBarPatch", () => {
 
     const dispose = installAchievementBarPatch();
     routeCallback()({});
+    vi.runAllTimers();
 
     expect(() => dispose()).not.toThrow();
     expect(mocks.removePatch).toHaveBeenCalledOnce();
@@ -517,6 +617,7 @@ describe("installAchievementBarPatch", () => {
 
     expect(() => routeCallback()(props)).not.toThrow();
     expect(routeCallback()(props)).toBe(props);
+    expect(() => vi.runAllTimers()).not.toThrow();
     expect(mocks.afterPatch).not.toHaveBeenCalled();
   });
 

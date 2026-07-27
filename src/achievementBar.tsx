@@ -14,6 +14,10 @@ const INSTANCE_PATCH_FLAG = "__achRestored";
 
 type SeekHandler = (section: string) => void;
 type PrototypePatch = { unpatch: () => void };
+type MiniAchievementsCapture = {
+  MiniClass: any | undefined;
+  instances: any[];
+};
 type AfterPatch = (
   target: any,
   method: string,
@@ -216,14 +220,17 @@ export function getBigPictureDocument(popupManager: any): any | undefined {
   }
 }
 
-/** Capture MiniAchievements from the live BPM fiber tree without wrapping it. */
-export function captureMiniAchievementsClass(
+/**
+ * Capture MiniAchievements and its mounted instances from the live BPM fiber
+ * tree without wrapping or mutating the tree.
+ */
+export function captureMiniAchievements(
   popupManager: any,
-): any | undefined {
+): MiniAchievementsCapture {
   try {
     const document = getBigPictureDocument(popupManager);
     let rootFiber = getFiberFromDocument(document);
-    if (!rootFiber) return undefined;
+    if (!rootFiber) return { MiniClass: undefined, instances: [] };
 
     for (
       let depth = 0;
@@ -233,13 +240,34 @@ export function captureMiniAchievementsClass(
       rootFiber = rootFiber.return;
     }
 
-    return findClassInFiberTree(
-      rootFiber,
-      hasAchievementRenderSignature,
-      MAX_FIBER_NODES,
-    );
+    const stack = [rootFiber];
+    const instances: any[] = [];
+    const seenInstances = new Set<any>();
+    let MiniClass: any | undefined;
+    let visited = 0;
+
+    while (stack.length > 0 && visited < MAX_FIBER_NODES) {
+      const fiber = stack.pop();
+      if (!fiber) continue;
+      visited += 1;
+
+      const type = fiber.elementType || fiber.type;
+      if (type && hasAchievementRenderSignature(type)) {
+        MiniClass ??= type;
+        const instance = fiber.stateNode;
+        if (instance != null && !seenInstances.has(instance)) {
+          seenInstances.add(instance);
+          instances.push(instance);
+        }
+      }
+
+      if (fiber.sibling) stack.push(fiber.sibling);
+      if (fiber.child) stack.push(fiber.child);
+    }
+
+    return { MiniClass, instances };
   } catch {
-    return undefined;
+    return { MiniClass: undefined, instances: [] };
   }
 }
 
@@ -257,6 +285,55 @@ export function resolveSeekController(instance: any): any | undefined {
   }
 }
 
+/** Supply durable props to one mounted MiniAchievements instance and refresh it. */
+export function restoreInstance(instance: any): void {
+  try {
+    if (
+      !instance ||
+      Object.prototype.hasOwnProperty.call(instance, INSTANCE_PATCH_FLAG)
+    ) {
+      return;
+    }
+
+    const onSeek: SeekHandler = (section) => {
+      try {
+        const controller = resolveSeekController(instance);
+        const seek = controller?.SeekToSection;
+        if (typeof seek === "function") {
+          seek.call(controller, section);
+        }
+      } catch {
+        // Native currently has no achievements target; activation no-ops.
+      }
+    };
+    let store = withOnSeek(instance.props, onSeek);
+
+    Object.defineProperty(instance, "props", {
+      configurable: true,
+      get: () => store,
+      set: (value) => {
+        store = withOnSeek(value, onSeek);
+      },
+    });
+    Object.defineProperty(instance, INSTANCE_PATCH_FLAG, {
+      configurable: true,
+      value: true,
+    });
+
+    setTimeout(() => {
+      try {
+        if (typeof instance.forceUpdate === "function") {
+          instance.forceUpdate();
+        }
+      } catch {
+        // A detached instance is harmless; never throw into Steam.
+      }
+    }, 0);
+  } catch {
+    // A malformed or detached instance must never break the Steam UI.
+  }
+}
+
 /**
  * Patch MiniAchievements.prototype.render without wrapping/remounting the class.
  * The first intercepted render installs durable props and queues a fresh commit.
@@ -270,52 +347,7 @@ export function patchMiniAchievementsRender(
       MiniClass.prototype,
       "render",
       function (this: any, _args: any[], result: any): any {
-        try {
-          if (
-            Object.prototype.hasOwnProperty.call(this, INSTANCE_PATCH_FLAG)
-          ) {
-            return result;
-          }
-
-          const instance = this;
-          const onSeek: SeekHandler = (section) => {
-            try {
-              const controller = resolveSeekController(instance);
-              const seek = controller?.SeekToSection;
-              if (typeof seek === "function") {
-                seek.call(controller, section);
-              }
-            } catch {
-              // Native currently has no achievements target; activation no-ops.
-            }
-          };
-          let store = withOnSeek(instance.props, onSeek);
-
-          Object.defineProperty(instance, INSTANCE_PATCH_FLAG, {
-            configurable: true,
-            value: true,
-          });
-          Object.defineProperty(instance, "props", {
-            configurable: true,
-            get: () => store,
-            set: (value) => {
-              store = withOnSeek(value, onSeek);
-            },
-          });
-
-          setTimeout(() => {
-            try {
-              if (typeof instance.forceUpdate === "function") {
-                instance.forceUpdate();
-              }
-            } catch {
-              // A detached instance is harmless; never throw into Steam.
-            }
-          }, 0);
-        } catch {
-          // The current render remains unchanged if instance patching fails.
-        }
-
+        restoreInstance(this);
         return result;
       },
     );
@@ -342,22 +374,48 @@ export function installAchievementBarPatch(): () => void {
 
   let routePatch: any;
   let prototypePatch: PrototypePatch | undefined;
+  let attemptScheduled = false;
+  let attemptTimer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+
+  const attemptCaptureAndPatch = (): void => {
+    try {
+      if (disposed || prototypePatch) return;
+
+      const { MiniClass, instances } = captureMiniAchievements(
+        steamGlobals.getPopupManager(),
+      );
+      if (!MiniClass) return;
+
+      const patch = patchMiniAchievementsRender(MiniClass, {
+        afterPatch: afterPatch as AfterPatch,
+      });
+      if (!patch) return;
+
+      prototypePatch = patch;
+      for (const instance of instances) {
+        restoreInstance(instance);
+      }
+    } catch (error) {
+      safeWarn("achievement class capture failed", error);
+    }
+  };
 
   try {
     routePatch = routerHook.addPatch(APP_ROUTE, (props: any) => {
       try {
-        if (!prototypePatch) {
-          const MiniClass = captureMiniAchievementsClass(
-            steamGlobals.getPopupManager(),
-          );
-          if (MiniClass) {
-            prototypePatch = patchMiniAchievementsRender(MiniClass, {
-              afterPatch: afterPatch as AfterPatch,
-            });
-          }
+        if (!disposed && !prototypePatch && !attemptScheduled) {
+          attemptScheduled = true;
+          attemptTimer = setTimeout(() => {
+            attemptTimer = undefined;
+            attemptScheduled = false;
+            attemptCaptureAndPatch();
+          }, 0);
         }
       } catch (error) {
-        safeWarn("achievement class capture failed", error);
+        attemptScheduled = false;
+        attemptTimer = undefined;
+        safeWarn("achievement class capture scheduling failed", error);
       }
 
       return props;
@@ -367,6 +425,18 @@ export function installAchievementBarPatch(): () => void {
   }
 
   return () => {
+    disposed = true;
+
+    if (attemptTimer !== undefined) {
+      try {
+        clearTimeout(attemptTimer);
+      } catch (error) {
+        safeWarn("capture timer cleanup failed", error);
+      }
+      attemptTimer = undefined;
+      attemptScheduled = false;
+    }
+
     if (routePatch) {
       try {
         routerHook.removePatch(APP_ROUTE, routePatch);
