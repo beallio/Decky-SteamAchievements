@@ -39,7 +39,7 @@ pnpm run build          # rollup -> dist/index.js
 pnpm run package        # build + zip for install on the Deck
 ```
 
-Deploy `dist/` to `~/homebrew/plugins/Achievements Restored/` on the Deck (Decky
+Deploy `dist/` to `~/homebrew/plugins/Decky-SteamAchievements/` on the Deck (Decky
 Loader picks it up), or install the packaged zip.
 
 ## Layout
