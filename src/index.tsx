@@ -42,7 +42,9 @@ function Content({ controller }: { controller: AchievementFeatureController }) {
           const description = descriptionRef.current;
           if (!description) return;
 
-          description.focus({ preventScroll: true });
+          // Decky's outer QAM scroller survives content remounts. Reset only
+          // that scroll position; native HTMLElement.focus() bypasses Steam's
+          // gamepad navigation state and can make this preferred row unreachable.
           let ancestor = description.parentElement;
           while (ancestor) {
             const overflowY = getComputedStyle(ancestor).overflowY;

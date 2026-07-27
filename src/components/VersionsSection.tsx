@@ -3,6 +3,12 @@ import type { Versions } from "../backend";
 
 const display = (value: string) => value.trim() || "Unknown";
 const versionTextStyle = { fontSize: "0.8rem" } as const;
+const versionRowCss = `
+  .achievements-restored-version-row {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+`;
 
 export function VersionsSection({ versions }: { versions: Versions }) {
   const entries = [
@@ -12,6 +18,7 @@ export function VersionsSection({ versions }: { versions: Versions }) {
   ];
   return (
     <PanelSection title="Versions">
+      <style>{versionRowCss}</style>
       {entries.map(([label, value]) => (
         <PanelSectionRow key={label}>
           <Field
@@ -19,7 +26,8 @@ export function VersionsSection({ versions }: { versions: Versions }) {
             focusable={true}
             highlightOnFocus={true}
             bottomSeparator="none"
-            padding="compact"
+            padding="standard"
+            className="achievements-restored-version-row"
           >
             <span style={versionTextStyle}>{display(value)}</span>
           </Field>

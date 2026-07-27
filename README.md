@@ -35,6 +35,29 @@ data is available, and hides it whenever Steam supplies no achievement total.
 Full investigation: [`HANDOFF.md`](HANDOFF.md) and
 [`research/diffs/removal_onSeek_guard.md`](research/diffs/removal_onSeek_guard.md).
 
+## Install on Steam Deck
+
+Decky Loader must already be installed. In SteamOS Desktop Mode:
+
+1. Download [`Achievements Restored Installer.zip`](installer/Achievements%20Restored%20Installer.zip).
+2. Extract the ZIP directly onto the Desktop. Keep the extracted
+   `DeckyPluginInstaller` folder beside `Install Achievements Restored`.
+3. Double-click **Install Achievements Restored**. If KDE marks the downloaded
+   launcher as untrusted, review it and choose **Trust and Launch**.
+4. Confirm the plugin details and approve the administrator-authentication
+   prompt. Return to Gaming Mode when installation finishes.
+
+The installer downloads the latest stable `Achievements Restored.zip` release
+asset from this repository, validates the archive, backs up an existing plugin
+copy, installs the replacement, and restarts Decky Loader. Run the launcher as
+the normal `deck` user; do not run the whole installer with `sudo`.
+
+Installer sources and the bundle build command live under [`installer/`](installer/):
+
+```bash
+bash installer/build_bundle.sh
+```
+
 ## Develop
 
 ```bash

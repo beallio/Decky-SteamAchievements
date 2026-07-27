@@ -80,3 +80,10 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Report the installed plugin version from the packaged manifest; resolve Decky
   and SteamOS versions from the runtime and `/etc/os-release`.
 - Keep every setting and each version row independently gamepad-focusable.
+- Reset Decky's retained QAM scroll position without calling native DOM
+  `focus()`; let `preferredFocus` and Steam's gamepad navigation own focus so
+  users can return to the description with the D-pad.
+- `installer/Achievements Restored Installer.zip` is built from the adjacent
+  specialized installer sources with `bash installer/build_bundle.sh`; keep its
+  GitHub repository URL and exact `Achievements Restored.zip` asset name aligned
+  with the release workflow.

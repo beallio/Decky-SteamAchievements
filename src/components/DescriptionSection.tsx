@@ -10,6 +10,7 @@ export function DescriptionSection({ focusRef }: { focusRef?: Ref<HTMLDivElement
           focusable={true}
           highlightOnFocus={false}
           preferredFocus={true}
+          onActivate={() => undefined}
           childrenLayout="below"
           childrenContainerWidth="max"
           bottomSeparator="none"

@@ -36,6 +36,7 @@ describe("focusable QAM sections", () => {
     expect(fields[0].props.focusable).toBe(true);
     expect(fields[0].props.preferredFocus).toBe(true);
     expect(fields[0].props.highlightOnFocus).toBe(false);
+    expect(fields[0].props.onActivate).toEqual(expect.any(Function));
     expect(fields[0].props.childrenLayout).toBe("below");
     expect(fields[0].props.childrenContainerWidth).toBe("max");
     expect(JSON.stringify(fields[0].props.children)).toContain(
@@ -72,6 +73,7 @@ describe("focusable QAM sections", () => {
       versions: { plugin: "  ", decky: "v3.2.6", steamos: "3.8.1" },
     });
     const fields = collect(tree, "Field");
+    const styles = collect(tree, "style");
     expect(fields.map((entry) => entry.props.label.props.children)).toEqual([
       "Plugin",
       "Decky Loader",
@@ -79,7 +81,14 @@ describe("focusable QAM sections", () => {
     ]);
     expect(fields.every((entry) => entry.props.focusable === true)).toBe(true);
     expect(fields.every((entry) => entry.props.highlightOnFocus === true)).toBe(true);
-    expect(fields.every((entry) => entry.props.padding === "compact")).toBe(true);
+    expect(fields.every((entry) => entry.props.padding === "standard")).toBe(true);
+    expect(
+      fields.every(
+        (entry) => entry.props.className === "achievements-restored-version-row",
+      ),
+    ).toBe(true);
+    expect(styles[0].props.children).toContain("padding-top: 4px");
+    expect(styles[0].props.children).toContain("padding-bottom: 4px");
     expect(
       fields.every(
         (entry) =>
