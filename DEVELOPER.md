@@ -50,7 +50,7 @@ This builds the frontend and creates `Achievements Restored.zip` in the reposito
 root. Local builds include the current short Git commit as version metadata.
 
 Install the package with Decky's developer ZIP flow, or deploy `dist/` and the
-backend files to `~/homebrew/plugins/Achievements Restored/` for local testing.
+backend files to `~/homebrew/plugins/Decky-SteamAchievements/` for local testing.
 
 ## Build the Desktop installer bundle
 

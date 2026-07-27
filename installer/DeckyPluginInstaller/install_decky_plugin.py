@@ -49,7 +49,7 @@ DISTRIBUTION_PLUGIN_URL = "https://github.com/beallio/Decky-SteamAchievements"
 
 # Optional distribution defaults. Leave these empty/False to use the latest
 # stable release and require the normal confirmation prompt.
-DISTRIBUTION_ASSET = "Achievements Restored.zip"
+DISTRIBUTION_ASSET = "Decky-SteamAchievements.zip"
 DISTRIBUTION_RELEASE_TAG = ""
 DISTRIBUTION_INCLUDE_PRERELEASE = False
 DISTRIBUTION_EXPECTED_SHA256 = ""

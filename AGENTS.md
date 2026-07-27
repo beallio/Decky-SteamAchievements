@@ -73,6 +73,7 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Terse, factual commit messages; do not add Claude/AI trailers.
 - Prefer resilient lookups and graceful failure — a broken patch must never crash
   the Steam UI (wrap in try/catch, log, no-op on failure).
+<<<<<<< HEAD
 - Persistent settings live in Decky's plugin settings directory and default to
   achievement restoration enabled with verbose diagnostics disabled.
 - Disabling restoration must clean injected props from mounted instances, not
@@ -87,3 +88,27 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   specialized installer sources with `bash installer/build_bundle.sh`; keep its
   GitHub repository URL and exact `Achievements Restored.zip` asset name aligned
   with the release workflow.
+=======
+
+## Plugin identity — canonical vs display
+
+Two names, deliberately different. Do not "unify" them.
+
+- **Canonical: `Decky-SteamAchievements`** — matches the repository name. Lives in `plugin.json`
+  `name`, and lowercase-kebab in `package.json` (`decky-steamachievements`). This string is
+  load-bearing: `scripts/package.mjs` derives the packaged folder name and zip filename from
+  `plugin.json` `name`, Decky Loader keys the installed plugin directory
+  (`~/homebrew/plugins/Decky-SteamAchievements/`) off it, and any self-updater must pass it
+  verbatim to `install_plugin` to replace in place rather than installing a second copy.
+- **Display: `Achievements Restored`** — what the user sees. Lives in `src/index.tsx` as
+  `PLUGIN_NAME`, used for the `definePlugin` `name` and the QAM `titleView`. Also the product
+  name in `README.md`/`AGENTS.md` titles and the installer's user-facing artifacts.
+
+Changing the canonical name changes the on-device install directory and the release asset
+filename, and breaks in-place updates for anyone already running the plugin. Treat it as a
+breaking change, not a rename.
+
+Note the sibling `Decky-Metadata` has these two out of sync — its `AGENTS.md` says the canonical
+name has no space while its shipped `plugin.json` has one. That is a known open issue there; do
+not copy its current state as a pattern.
+>>>>>>> dev
