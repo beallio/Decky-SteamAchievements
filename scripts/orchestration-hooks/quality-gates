@@ -56,9 +56,10 @@ if [[ -f main.py ]]; then
 fi
 
 # --- backend: Python tests ---------------------------------------------------
-# tests/ holds the TypeScript suite too, so its mere existence does not imply Python
-# tests. pytest exits 5 ("no tests collected") when there are none, which fails the
-# gate under `set -e` on a perfectly healthy tree. Only run it when a Python test
+# A tests/ directory can exist without holding any Python tests. Here it survives only as
+# leftover __pycache__ from a deleted test file; the real suite is vitest under
+# src/*.test.tsx. pytest exits 5 ("no tests collected") when it finds none, which fails
+# the gate under `set -e` on a perfectly healthy tree. Only run it when a Python test
 # file actually exists.
 if [[ -d tests ]] && find tests \( -name 'test_*.py' -o -name '*_test.py' \) -print -quit | grep -q .; then
   uv run --with pytest -- pytest -q
