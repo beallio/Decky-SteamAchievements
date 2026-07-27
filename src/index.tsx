@@ -1,6 +1,6 @@
 import { definePlugin } from "@decky/api";
 import { staticClasses } from "@decky/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaTrophy } from "react-icons/fa6";
 import {
   getSettings,
@@ -31,6 +31,41 @@ function Content({ controller }: { controller: AchievementFeatureController }) {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [featureBusy, setFeatureBusy] = useState(false);
   const [debugBusy, setDebugBusy] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        try {
+          const description = descriptionRef.current;
+          if (!description) return;
+
+          description.focus({ preventScroll: true });
+          let ancestor = description.parentElement;
+          while (ancestor) {
+            const overflowY = getComputedStyle(ancestor).overflowY;
+            if (
+              (overflowY === "auto" || overflowY === "scroll") &&
+              ancestor.scrollHeight > ancestor.clientHeight
+            ) {
+              ancestor.scrollTop = 0;
+              return;
+            }
+            ancestor = ancestor.parentElement;
+          }
+          description.scrollIntoView({ block: "start", inline: "nearest" });
+        } catch (error) {
+          log.debug("focus", "could not reset QAM panel focus", error);
+        }
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +137,7 @@ function Content({ controller }: { controller: AchievementFeatureController }) {
 
   return (
     <FocusablePanel>
-      <DescriptionSection />
+      <DescriptionSection focusRef={descriptionRef} />
       <SettingsSection
         featureEnabled={settings.feature_enabled}
         debugLogging={settings.debug_logging}

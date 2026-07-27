@@ -28,16 +28,20 @@ function collect(node: any, type: string, found: any[] = []): any[] {
 
 describe("focusable QAM sections", () => {
   it("starts at the restored description without a focus highlight", () => {
-    const tree = DescriptionSection();
+    const tree = DescriptionSection({});
     const fields = collect(tree, "Field");
 
+    expect(tree.props.title).toBeUndefined();
     expect(fields).toHaveLength(1);
     expect(fields[0].props.focusable).toBe(true);
     expect(fields[0].props.preferredFocus).toBe(true);
     expect(fields[0].props.highlightOnFocus).toBe(false);
+    expect(fields[0].props.childrenLayout).toBe("below");
+    expect(fields[0].props.childrenContainerWidth).toBe("max");
     expect(JSON.stringify(fields[0].props.children)).toContain(
       "Restores the achievement progress bar",
     );
+    expect(JSON.stringify(fields[0].props.children)).not.toContain("Active.");
   });
 
   it("renders two independently focusable settings with concise copy", () => {

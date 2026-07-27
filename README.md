@@ -27,6 +27,11 @@ This plugin patches `MiniAchievements`' own `render` to supply the withheld
 `onSeek` prop, then schedules a re-render so React commits Valve's component.
 **It does not reimplement the bar.**
 
+The plugin also preserves Valve's native installed-game behavior. Valve
+intentionally hides the compact bar for an uninstalled game with zero earned
+achievements, permits it for an uninstalled game with earned progress when that
+data is available, and hides it whenever Steam supplies no achievement total.
+
 Full investigation: [`HANDOFF.md`](HANDOFF.md) and
 [`research/diffs/removal_onSeek_guard.md`](research/diffs/removal_onSeek_guard.md).
 

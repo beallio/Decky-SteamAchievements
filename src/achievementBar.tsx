@@ -1,7 +1,6 @@
 // Restore Valve's achievement progress bar without remounting any app-details
 // components. The MiniAchievements class is captured read-only from the Big
-// Picture fiber tree, then its own render method is patched to supply the props
-// Valve's guards require.
+// Picture fiber tree, then its own render method is patched to supply onSeek.
 
 import { routerHook } from "@decky/api";
 import { afterPatch } from "@decky/ui";
@@ -65,30 +64,13 @@ export function hasAchievementRenderSignature(type: unknown): boolean {
   }
 }
 
-/**
- * Supply Valve's missing onSeek and treat an uninstalled Steam game as eligible
- * for the compact progress display. The latter only affects MiniAchievements'
- * render guard; the original overview object is restored when the patch stops.
- */
-export function withRestoredProps(props: any, handler: SeekHandler): any {
+/** Supply onSeek without replacing a non-null handler already provided by Valve. */
+export function withOnSeek(props: any, handler: SeekHandler): any {
   if (props === null || typeof props !== "object") return props;
 
   try {
-    const needsOnSeek = props.onSeek == null;
-    const overview = props.overview;
-    const needsInstalled =
-      overview !== null &&
-      typeof overview === "object" &&
-      overview.installed !== true;
-
-    if (!needsOnSeek && !needsInstalled) return props;
-    return {
-      ...props,
-      ...(needsOnSeek ? { onSeek: handler } : {}),
-      ...(needsInstalled
-        ? { overview: { ...overview, installed: true } }
-        : {}),
-    };
+    if (props.onSeek != null) return props;
+    return { ...props, onSeek: handler };
   } catch {
     return props;
   }
@@ -332,14 +314,14 @@ export function restoreInstance(instance: any): (() => void) | undefined {
       }
     };
     let rawProps = instance.props;
-    let store = withRestoredProps(rawProps, onSeek);
+    let store = withOnSeek(rawProps, onSeek);
 
     Object.defineProperty(instance, "props", {
       configurable: true,
       get: () => store,
       set: (value) => {
         rawProps = value;
-        store = withRestoredProps(rawProps, onSeek);
+        store = withOnSeek(rawProps, onSeek);
       },
     });
     let cleaned = false;

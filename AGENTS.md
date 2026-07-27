@@ -36,11 +36,16 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   `R(id)` (the `R.c` cache reads empty via that handle).
 - Achievements store: `R(78057).H.GetAchievements(appid)` → `{nTotal,nAchieved,…}`
   (id is build-specific — resolve by signature, not hardcode).
+- Uninstalled-game achievement data is usually absent from that store. A live
+  2026-07-26 probe found cached totals for only 4 of 58 uninstalled Steam games;
+  keep Valve's `!nTotal` guard and never fabricate progress when data is missing.
+- Preserve Valve's intended install guard:
+  `!overview.installed && nAchieved == 0` hides zero-progress uninstalled games,
+  while uninstalled games with earned progress may render when data is available.
+  The plugin remedies only the later `!onSeek` guard.
 - `afterPatch(MiniAchievements.prototype, "render", …)` works on the current
-  build. Supply `onSeek` through a persistent instance `props` getter, set the
-  getter's nested `overview.installed` view to true so uninstalled Steam games
-  with zero earned achievements pass Valve's install guard, then schedule
-  `forceUpdate()` out of band so React commits Valve's component.
+  build. Supply `onSeek` through a persistent instance `props` getter, then
+  schedule `forceUpdate()` out of band so React commits Valve's component.
 - Capture the class read-only from SharedJSContext through `g_PopupManager` →
   Big Picture document → React fiber DFS, matching the whole class source by
   `onSeek("achievements")`.
