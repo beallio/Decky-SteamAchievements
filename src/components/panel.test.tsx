@@ -79,6 +79,7 @@ describe("focusable QAM sections", () => {
     ]);
     expect(fields.every((entry) => entry.props.focusable === true)).toBe(true);
     expect(fields.every((entry) => entry.props.highlightOnFocus === true)).toBe(true);
+    expect(fields.every((entry) => entry.props.padding === "compact")).toBe(true);
     expect(
       fields.every(
         (entry) =>

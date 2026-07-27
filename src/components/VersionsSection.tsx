@@ -19,6 +19,7 @@ export function VersionsSection({ versions }: { versions: Versions }) {
             focusable={true}
             highlightOnFocus={true}
             bottomSeparator="none"
+            padding="compact"
           >
             <span style={versionTextStyle}>{display(value)}</span>
           </Field>
