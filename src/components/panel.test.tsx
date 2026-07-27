@@ -10,6 +10,7 @@ vi.mock("@decky/ui", () => ({
 }));
 
 import { FocusablePanel } from "./FocusablePanel";
+import { DescriptionSection } from "./DescriptionSection";
 import { SettingsSection } from "./SettingsSection";
 import { VersionsSection } from "./VersionsSection";
 
@@ -26,6 +27,19 @@ function collect(node: any, type: string, found: any[] = []): any[] {
 }
 
 describe("focusable QAM sections", () => {
+  it("starts at the restored description without a focus highlight", () => {
+    const tree = DescriptionSection();
+    const fields = collect(tree, "Field");
+
+    expect(fields).toHaveLength(1);
+    expect(fields[0].props.focusable).toBe(true);
+    expect(fields[0].props.preferredFocus).toBe(true);
+    expect(fields[0].props.highlightOnFocus).toBe(false);
+    expect(JSON.stringify(fields[0].props.children)).toContain(
+      "Restores the achievement progress bar",
+    );
+  });
+
   it("renders two independently focusable settings with concise copy", () => {
     const tree = SettingsSection({
       featureEnabled: true,
@@ -54,13 +68,20 @@ describe("focusable QAM sections", () => {
       versions: { plugin: "  ", decky: "v3.2.6", steamos: "3.8.1" },
     });
     const fields = collect(tree, "Field");
-    expect(fields.map((entry) => entry.props.label)).toEqual([
+    expect(fields.map((entry) => entry.props.label.props.children)).toEqual([
       "Plugin",
       "Decky Loader",
       "SteamOS",
     ]);
     expect(fields.every((entry) => entry.props.focusable === true)).toBe(true);
     expect(fields.every((entry) => entry.props.highlightOnFocus === true)).toBe(true);
+    expect(
+      fields.every(
+        (entry) =>
+          entry.props.label.props.style.fontSize === "0.8rem" &&
+          entry.props.children.props.style.fontSize === "0.8rem",
+      ),
+    ).toBe(true);
     expect(fields[0].props.children.props.children).toBe("Unknown");
   });
 

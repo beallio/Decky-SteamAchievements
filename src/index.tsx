@@ -14,6 +14,7 @@ import { installAchievementBarPatch } from "./achievementBar";
 import { SettingsSection } from "./components/SettingsSection";
 import { VersionsSection } from "./components/VersionsSection";
 import { FocusablePanel } from "./components/FocusablePanel";
+import { DescriptionSection } from "./components/DescriptionSection";
 import { AchievementFeatureController } from "./featureController";
 import * as log from "./log";
 
@@ -24,13 +25,7 @@ const DEFAULT_SETTINGS: PluginSettings = {
 };
 const EMPTY_VERSIONS: Versions = { plugin: "", decky: "", steamos: "" };
 
-function Content({
-  controller,
-  initialSettings,
-}: {
-  controller: AchievementFeatureController;
-  initialSettings: Promise<PluginSettings>;
-}) {
+function Content({ controller }: { controller: AchievementFeatureController }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [versions, setVersions] = useState(EMPTY_VERSIONS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -39,10 +34,20 @@ function Content({
 
   useEffect(() => {
     let cancelled = false;
-    void initialSettings.then((loaded) => {
+    // Decky unmounts plugin content whenever QAM closes. Read the backend again
+    // on each mount so the controls reflect the persisted values, not the
+    // snapshot from plugin startup.
+    void getSettings()
+      .then((loaded) => {
         if (cancelled) return;
         setSettings(loaded);
         log.setVerboseLogging(loaded.debug_logging);
+        controller.setEnabled(loaded.feature_enabled);
+        setSettingsLoaded(true);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        log.warn("settings", "settings reload failed; using defaults", error);
         setSettingsLoaded(true);
       });
     void getVersions()
@@ -53,7 +58,7 @@ function Content({
     return () => {
       cancelled = true;
     };
-  }, [initialSettings]);
+  }, [controller]);
 
   const saveFeature = async (enabled: boolean) => {
     if (featureBusy) return;
@@ -97,6 +102,7 @@ function Content({
 
   return (
     <FocusablePanel>
+      <DescriptionSection />
       <SettingsSection
         featureEnabled={settings.feature_enabled}
         debugLogging={settings.debug_logging}
@@ -131,9 +137,7 @@ export default definePlugin(() => {
   return {
     name: PLUGIN_NAME,
     titleView: <div className={staticClasses.Title}>{PLUGIN_NAME}</div>,
-    content: (
-      <Content controller={controller} initialSettings={initialSettings} />
-    ),
+    content: <Content controller={controller} />,
     icon: <FaTrophy />,
     onDismount() {
       active = false;

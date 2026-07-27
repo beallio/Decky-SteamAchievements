@@ -37,7 +37,7 @@ import {
   restoreInstance,
   resolveSeekController,
   steamGlobals,
-  withOnSeek,
+  withRestoredProps,
 } from "./achievementBar";
 
 const APP_ROUTE = "/library/app/:appid";
@@ -125,7 +125,7 @@ describe("hasAchievementRenderSignature", () => {
   });
 });
 
-describe("withOnSeek", () => {
+describe("withRestoredProps", () => {
   const handler = vi.fn();
 
   it.each([
@@ -133,24 +133,39 @@ describe("withOnSeek", () => {
     { onSeek: undefined },
     { onSeek: null },
   ])("adds the handler when onSeek is absent or nullish", (props) => {
-    const result = withOnSeek(props, handler);
+    const result = withRestoredProps(props, handler);
 
     expect(result).not.toBe(props);
     expect(result).toEqual({ ...props, onSeek: handler });
   });
 
-  it("leaves an existing handler and object untouched", () => {
+  it("leaves eligible props with an existing handler untouched", () => {
     const existing = vi.fn();
-    const props = { onSeek: existing, other: true };
+    const props = { onSeek: existing, overview: { installed: true }, other: true };
 
-    expect(withOnSeek(props, handler)).toBe(props);
+    expect(withRestoredProps(props, handler)).toBe(props);
     expect(props.onSeek).toBe(existing);
+  });
+
+  it("makes an uninstalled game's overview eligible without mutating it", () => {
+    const existing = vi.fn();
+    const overview = { installed: false, appid: 10 };
+    const props = { onSeek: existing, overview };
+
+    const result = withRestoredProps(props, handler);
+
+    expect(result).toEqual({
+      onSeek: existing,
+      overview: { installed: true, appid: 10 },
+    });
+    expect(result.overview).not.toBe(overview);
+    expect(overview.installed).toBe(false);
   });
 
   it.each([null, undefined, "props", 10, true, () => undefined])(
     "passes through non-object props %s",
     (props) => {
-      expect(withOnSeek(props, handler)).toBe(props);
+      expect(withRestoredProps(props, handler)).toBe(props);
     },
   );
 
@@ -164,8 +179,8 @@ describe("withOnSeek", () => {
       },
     );
 
-    expect(() => withOnSeek(props, handler)).not.toThrow();
-    expect(withOnSeek(props, handler)).toBe(props);
+    expect(() => withRestoredProps(props, handler)).not.toThrow();
+    expect(withRestoredProps(props, handler)).toBe(props);
   });
 });
 
@@ -436,7 +451,7 @@ describe("patchMiniAchievementsRender", () => {
     let handler: Function | undefined;
     const existing = vi.fn();
     class MiniClass {
-      props = { onSeek: existing };
+      props = { onSeek: existing, overview: { installed: true } };
       forceUpdate = vi.fn();
     }
     const instance = new MiniClass();
@@ -479,7 +494,7 @@ describe("restoreInstance", () => {
   it("installs persistent props and schedules only one refresh per instance", () => {
     const controller = { SeekToSection: vi.fn() };
     const instance: any = {
-      props: { details: true },
+      props: { details: true, overview: { installed: false } },
       forceUpdate: vi.fn(),
       _reactInternals: { return: { stateNode: controller } },
     };
@@ -496,6 +511,7 @@ describe("restoreInstance", () => {
     expect(instance.props).toMatchObject({
       details: true,
       onSeek: expect.any(Function),
+      overview: { installed: true },
     });
 
     instance.props.onSeek("achievements");

@@ -37,8 +37,10 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Achievements store: `R(78057).H.GetAchievements(appid)` → `{nTotal,nAchieved,…}`
   (id is build-specific — resolve by signature, not hardcode).
 - `afterPatch(MiniAchievements.prototype, "render", …)` works on the current
-  build. Supply `onSeek` through a persistent instance `props` getter, then
-  schedule `forceUpdate()` out of band so React commits Valve's component.
+  build. Supply `onSeek` through a persistent instance `props` getter, set the
+  getter's nested `overview.installed` view to true so uninstalled Steam games
+  with zero earned achievements pass Valve's install guard, then schedule
+  `forceUpdate()` out of band so React commits Valve's component.
 - Capture the class read-only from SharedJSContext through `g_PopupManager` →
   Big Picture document → React fiber DFS, matching the whole class source by
   `onSeek("achievements")`.
