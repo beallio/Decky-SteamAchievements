@@ -32,9 +32,6 @@ intentionally hides the compact bar for an uninstalled game with zero earned
 achievements, permits it for an uninstalled game with earned progress when that
 data is available, and hides it whenever Steam supplies no achievement total.
 
-Full investigation: [`HANDOFF.md`](HANDOFF.md) and
-[`research/diffs/removal_onSeek_guard.md`](research/diffs/removal_onSeek_guard.md).
-
 ## Install on Steam Deck
 
 Decky Loader must already be installed. In SteamOS Desktop Mode:
@@ -52,32 +49,28 @@ asset from this repository, validates the archive, backs up an existing plugin
 copy, installs the replacement, and restarts Decky Loader. Run the launcher as
 the normal `deck` user; do not run the whole installer with `sudo`.
 
-Installer sources and the bundle build command live under [`installer/`](installer/):
+### Install the plugin ZIP through Decky
 
-```bash
-bash installer/build_bundle.sh
-```
+Decky can also install the `Achievements Restored.zip` plugin package directly:
 
-## Develop
+1. Download `Achievements Restored.zip` from the latest release and place it in
+   the Steam Deck's `Downloads` folder.
+2. In Gaming Mode, open **QAM → Decky → Settings → General**.
+3. Under **Other**, enable **Developer mode**. This adds the **Developer** page
+   to Decky's settings sidebar.
+4. Open **Developer → Third-Party Plugins**.
+5. Beside **Install Plugin from ZIP File**, choose **Browse**, select
+   `Achievements Restored.zip` from `Downloads`, and approve Decky's installation
+   confirmation.
 
-```bash
-direnv allow            # loads .envrc: caches/scratch -> /tmp/Decky-SteamAchievements
-pnpm install            # or npm install
-pnpm run build          # rollup -> dist/index.js
-pnpm run package        # build + zip for install on the Deck
-```
+Use the plugin ZIP for Decky's built-in installation flow. Do not select
+`Achievements Restored Installer.zip` there; that bundle is intended to be
+extracted and launched from SteamOS Desktop Mode as described above.
 
-Deploy `dist/` to `~/homebrew/plugins/Achievements Restored/` on the Deck (Decky
-Loader picks it up), or install the packaged zip.
+## Development
 
-## Layout
-
-- `src/index.tsx` — plugin entry (`definePlugin`).
-- `src/achievementBar.tsx` — the route patch that restores the bar.
-- `main.py` — minimal Decky backend (lifecycle only; the fix is frontend).
-- `scripts/` — Decky build/package helpers + `orchestration` (symlinked engine).
-- `docs/` — plans, specs, review notes (project + orchestration convention).
-- `research/` — the reverse-engineering artifacts (gitignored; reports curated).
+See [`DEVELOPER.md`](DEVELOPER.md) for setup, build, test, packaging, deployment,
+installer-bundle maintenance, and repository layout information.
 
 ## License
 
