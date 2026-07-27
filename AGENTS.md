@@ -66,3 +66,10 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Terse, factual commit messages; do not add Claude/AI trailers.
 - Prefer resilient lookups and graceful failure — a broken patch must never crash
   the Steam UI (wrap in try/catch, log, no-op on failure).
+- Persistent settings live in Decky's plugin settings directory and default to
+  achievement restoration enabled with verbose diagnostics disabled.
+- Disabling restoration must clean injected props from mounted instances, not
+  only remove route/prototype patches.
+- Report the installed plugin version from the packaged manifest; resolve Decky
+  and SteamOS versions from the runtime and `/etc/os-release`.
+- Keep every setting and each version row independently gamepad-focusable.

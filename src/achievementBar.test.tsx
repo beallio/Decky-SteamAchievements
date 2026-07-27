@@ -405,6 +405,7 @@ describe("patchMiniAchievementsRender", () => {
 
     const patch = patchMiniAchievementsRender(MiniClass, {
       afterPatch: fakeAfterPatch,
+      onRestore: vi.fn(),
     });
 
     expect(fakeAfterPatch).toHaveBeenCalledWith(
@@ -519,6 +520,23 @@ describe("restoreInstance", () => {
     expect(() => restoreInstance(undefined)).not.toThrow();
     expect(() => vi.runAllTimers()).not.toThrow();
   });
+
+  it("restores the latest raw props and can be enabled again after cleanup", () => {
+    const instance: any = { props: { original: true }, forceUpdate: vi.fn() };
+    const cleanup = restoreInstance(instance);
+    instance.props = { latest: true, onSeek: undefined };
+
+    expect(instance.props.onSeek).toEqual(expect.any(Function));
+    cleanup?.();
+    cleanup?.();
+    expect(instance.props).toEqual({ latest: true, onSeek: undefined });
+    expect(Object.prototype.hasOwnProperty.call(instance, "__achRestored")).toBe(false);
+    vi.runAllTimers();
+    expect(instance.forceUpdate).toHaveBeenCalledTimes(2);
+
+    expect(restoreInstance(instance)).toEqual(expect.any(Function));
+    expect(instance.props.onSeek).toEqual(expect.any(Function));
+  });
 });
 
 describe("installAchievementBarPatch", () => {
@@ -592,6 +610,11 @@ describe("installAchievementBarPatch", () => {
     expect(mocks.removePatch).toHaveBeenCalledWith(APP_ROUTE, callback);
     expect(routeRenderPatch.unpatch).toHaveBeenCalledOnce();
     expect(prototypePatch.unpatch).toHaveBeenCalledOnce();
+    expect(firstInstance.props.onSeek).toBeUndefined();
+    expect(secondInstance.props.onSeek).toBeUndefined();
+    vi.runAllTimers();
+    expect(firstInstance.forceUpdate).toHaveBeenCalledTimes(2);
+    expect(secondInstance.forceUpdate).toHaveBeenCalledTimes(2);
   });
 
   it("retries from a real route render after the initial capture burst expires", () => {
