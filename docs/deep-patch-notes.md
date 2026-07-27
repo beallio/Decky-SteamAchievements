@@ -80,3 +80,18 @@ prototype `render`. On the first intercepted render it installs a persistent
 `forceUpdate()`. This restores Valve's component without a remount or CSS
 changes; [`assets/achievement-bar-restored.png`](../assets/achievement-bar-restored.png)
 is the target appearance.
+
+## Final trigger lifecycle
+
+The first capture-timing implementation still failed when the plugin loaded away
+from app details. It treated the callback passed to `routerHook.addPatch()` as a
+per-navigation callback, but Decky invokes it while transforming the route table.
+Its single deferred capture could miss `MiniAchievements` and then remain idle
+when a game was opened later.
+
+The route's `children.props.renderFunc` after-patch is retained only as a signal:
+it returns the rendered tree untouched and schedules a short, bounded capture
+burst after the render. The output remains too shallow for component searching.
+Future app-details renders can start a new burst, while successful prototype
+capture stops all further scans. No tree descent, component wrapping, remount, or
+permanent background poll is involved.
