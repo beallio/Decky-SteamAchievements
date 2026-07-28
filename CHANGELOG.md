@@ -22,10 +22,12 @@ Release entries are curated by hand and dated. A release must not be cut against
   packaged release asset is `Decky-SteamAchievements.zip`. Both are derived from `plugin.json`
   `name` by `scripts/package.mjs`.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-07-27
 
-Initial development version. Restores the achievement progress bar Valve removed from the Steam
-Deck game-details PlayBar by supplying the `onSeek` prop its `MiniAchievements` component
-requires, via a prototype-method patch that avoids remounting Steam's content components.
+Initial development release.
+
+Restores the achievement progress bar Valve removed from the Steam Deck game-details PlayBar by
+supplying the `onSeek` prop its `MiniAchievements` component requires, via a prototype-method
+patch that avoids remounting Steam's content components.
 
 No release has been tagged yet; the repository has no tags and no published GitHub release.
