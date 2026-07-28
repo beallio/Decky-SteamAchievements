@@ -50,6 +50,7 @@ describe("focusable QAM sections", () => {
     const tree = DescriptionSection({});
     const field = collect(tree, "Field")[0];
     let onScrollEnd: (() => void) | undefined;
+    let fallbackReveal: (() => void) | undefined;
     const scroller = {
       parentElement: null,
       scrollTop: 140,
@@ -72,7 +73,10 @@ describe("focusable QAM sections", () => {
       callback(0);
       return 1;
     });
-    vi.stubGlobal("setTimeout", vi.fn(() => 9));
+    vi.stubGlobal("setTimeout", vi.fn((callback: () => void) => {
+      fallbackReveal = callback;
+      return 9;
+    }));
     vi.stubGlobal("clearTimeout", vi.fn());
     vi.stubGlobal("getComputedStyle", (element: unknown) => ({
       overflowY: element === scroller ? "auto" : "visible",
@@ -88,6 +92,9 @@ describe("focusable QAM sections", () => {
     expect(scroller.scrollTop).toBe(140);
     onScrollEnd?.();
     expect(scroller.scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(scroller.scrollTop).toBe(0);
+    scroller.scrollTop = 36;
+    fallbackReveal?.();
     expect(scroller.scrollTop).toBe(0);
     expect(currentTarget.scrollIntoView).not.toHaveBeenCalled();
 

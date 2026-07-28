@@ -35,18 +35,16 @@ function resetAfterSteamScroll(description: HTMLDivElement) {
     return;
   }
 
-  let settled = false;
-  let fallback: ReturnType<typeof setTimeout> | undefined;
-  const reveal = () => {
-    if (settled) return;
-    settled = true;
-    if (fallback !== undefined) clearTimeout(fallback);
+  const reveal = () => scroller.scrollTo(0, 0);
+  const finalReveal = () => {
     scroller.removeEventListener("scrollend", reveal);
-    scroller.scrollTo(0, 0);
+    reveal();
   };
 
   scroller.addEventListener("scrollend", reveal, { once: true });
-  fallback = setTimeout(reveal, 500);
+  // Keep this independent from scrollend: Steam can emit an early scrollend,
+  // then apply its final sticky-header offset hundreds of milliseconds later.
+  setTimeout(finalReveal, 500);
 }
 
 const revealOnFocus = {
