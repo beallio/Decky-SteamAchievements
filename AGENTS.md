@@ -23,9 +23,11 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 
 ## Build / test
 
-- `pnpm install` (or `npm install`) then `pnpm run build` (rollup via `@decky/rollup`).
-- `pnpm run package` builds and zips via `scripts/package.mjs`.
-- `pnpm test` runs vitest.
+- `npm ci` then `npm run build` (rollup via `@decky/rollup`).
+- `npm run package` builds `Decky-SteamAchievements.zip` via `scripts/package.mjs`.
+- `npm test` runs vitest; `uv run --with pytest -- pytest -q` runs backend tests.
+- `scripts/orchestration/run-quality-gates` runs metadata agreement, typecheck,
+  build, frontend tests, Python compilation/tests, and version drift checks.
 - `scripts/check_tdd.sh` enforces a matching test for new `src/*.py` (backend).
 
 ## Decky runtime facts (for the patch)
@@ -73,7 +75,6 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Terse, factual commit messages; do not add Claude/AI trailers.
 - Prefer resilient lookups and graceful failure — a broken patch must never crash
   the Steam UI (wrap in try/catch, log, no-op on failure).
-<<<<<<< HEAD
 - Persistent settings live in Decky's plugin settings directory and default to
   achievement restoration enabled with verbose diagnostics disabled.
 - Disabling restoration must clean injected props from mounted instances, not
@@ -86,9 +87,9 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   users can return to the description with the D-pad.
 - `installer/Achievements Restored Installer.zip` is built from the adjacent
   specialized installer sources with `bash installer/build_bundle.sh`; keep its
-  GitHub repository URL and exact `Achievements Restored.zip` asset name aligned
-  with the release workflow.
-=======
+  GitHub repository URL and exact `Decky-SteamAchievements.zip` distribution
+  asset aligned with the release workflow. The installer bundle name is a
+  display artifact and deliberately differs from the canonical plugin ZIP.
 
 ## Plugin identity — canonical vs display
 
@@ -111,4 +112,13 @@ breaking change, not a rename.
 Note the sibling `Decky-Metadata` has these two out of sync — its `AGENTS.md` says the canonical
 name has no space while its shipped `plugin.json` has one. That is a known open issue there; do
 not copy its current state as a pattern.
->>>>>>> dev
+
+## Release channels
+
+- Pushes to `dev` run CI and refresh the replaceable `dev-build` prerelease with
+  exactly one `Decky-SteamAchievements.zip` asset.
+- Permanent `vX.Y.Z` tags trigger stable publication of the ZIP, checksum, and
+  release manifest only after the fail-closed prepublication checks pass.
+- `scripts/release.sh X.Y.Z` prepares a stable release locally and never pushes.
+  Stable `dev` → `main` promotion and tag publication remain human actions; follow
+  `docs/runbooks/release.md`.
