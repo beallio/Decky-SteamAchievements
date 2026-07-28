@@ -37,12 +37,68 @@ describe("focusable QAM sections", () => {
     expect(fields[0].props.preferredFocus).toBe(true);
     expect(fields[0].props.highlightOnFocus).toBe(false);
     expect(fields[0].props.onActivate).toEqual(expect.any(Function));
+    expect(fields[0].props.onFocus).toEqual(expect.any(Function));
     expect(fields[0].props.childrenLayout).toBe("below");
     expect(fields[0].props.childrenContainerWidth).toBe("max");
     expect(JSON.stringify(fields[0].props.children)).toContain(
       "Restores the achievement progress bar",
     );
     expect(JSON.stringify(fields[0].props.children)).not.toContain("Active.");
+  });
+
+  it("resets the outer QAM scroller after Steam's focus scroll settles", () => {
+    const tree = DescriptionSection({});
+    const field = collect(tree, "Field")[0];
+    let onScrollEnd: (() => void) | undefined;
+    let fallbackReveal: (() => void) | undefined;
+    const scroller = {
+      parentElement: null,
+      scrollTop: 140,
+      scrollHeight: 640,
+      clientHeight: 440,
+      addEventListener: vi.fn((name: string, callback: () => void) => {
+        if (name === "scrollend") onScrollEnd = callback;
+      }),
+      removeEventListener: vi.fn(),
+      scrollTo: vi.fn((_left: number, top: number) => {
+        scroller.scrollTop = top;
+      }),
+    };
+    const currentTarget = {
+      parentElement: scroller,
+      scrollIntoView: vi.fn(),
+    };
+
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("setTimeout", vi.fn((callback: () => void) => {
+      fallbackReveal = callback;
+      return 9;
+    }));
+    vi.stubGlobal("clearTimeout", vi.fn());
+    vi.stubGlobal("getComputedStyle", (element: unknown) => ({
+      overflowY: element === scroller ? "auto" : "visible",
+    }));
+
+    field.props.onFocus({ currentTarget });
+
+    expect(scroller.addEventListener).toHaveBeenCalledWith(
+      "scrollend",
+      expect.any(Function),
+      { once: true },
+    );
+    expect(scroller.scrollTop).toBe(140);
+    onScrollEnd?.();
+    expect(scroller.scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(scroller.scrollTop).toBe(0);
+    scroller.scrollTop = 36;
+    fallbackReveal?.();
+    expect(scroller.scrollTop).toBe(0);
+    expect(currentTarget.scrollIntoView).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
   });
 
   it("renders two independently focusable settings with concise copy", () => {
