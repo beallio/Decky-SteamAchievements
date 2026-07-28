@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { SettingsCoordinator } from "./settingsCoordinator";
 
-const defaults = { feature_enabled: true, debug_logging: false };
+const defaults = {
+  feature_enabled: true,
+  debug_logging: false,
+  update_channel: "stable" as const,
+  automatic_update_checks: true,
+};
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -70,12 +75,12 @@ describe("SettingsCoordinator", () => {
     test.coordinator.start();
     expect(test.loadSettings).toHaveBeenCalledOnce();
 
-    pending.resolve({ feature_enabled: false, debug_logging: true });
+    pending.resolve({ ...defaults, feature_enabled: false, debug_logging: true });
     await pending.promise;
     await Promise.resolve();
 
     expect(test.coordinator.snapshot).toMatchObject({
-      settings: { feature_enabled: false, debug_logging: true },
+      settings: { ...defaults, feature_enabled: false, debug_logging: true },
       loaded: true,
     });
     expect(test.controller.setEnabled).toHaveBeenLastCalledWith(false);
@@ -99,15 +104,16 @@ describe("SettingsCoordinator", () => {
     expect(test.setFeatureEnabled).toHaveBeenCalledWith(false);
     expect(test.setDebugLogging).not.toHaveBeenCalled();
 
-    feature.resolve({ feature_enabled: false, debug_logging: false });
+    feature.resolve({ ...defaults, feature_enabled: false, debug_logging: false });
     await feature.promise;
     await vi.waitFor(() => {
       expect(test.setDebugLogging).toHaveBeenCalledWith(true);
     });
 
-    debug.resolve({ feature_enabled: false, debug_logging: true });
+    debug.resolve({ ...defaults, feature_enabled: false, debug_logging: true });
     await Promise.all([first, second]);
     expect(test.coordinator.snapshot.settings).toEqual({
+      ...defaults,
       feature_enabled: false,
       debug_logging: true,
     });
@@ -128,6 +134,7 @@ describe("SettingsCoordinator", () => {
 
     expect(test.onError).toHaveBeenCalledWith("feature", expect.any(Error));
     expect(test.coordinator.snapshot.settings).toEqual({
+      ...defaults,
       feature_enabled: true,
       debug_logging: true,
     });
@@ -148,7 +155,7 @@ describe("SettingsCoordinator", () => {
     await Promise.resolve();
     const callsBeforeDispose = test.controller.setEnabled.mock.calls.length;
     test.coordinator.dispose();
-    feature.resolve({ feature_enabled: true, debug_logging: false });
+    feature.resolve({ ...defaults, feature_enabled: true, debug_logging: false });
     await save;
 
     expect(test.controller.dispose).toHaveBeenCalledOnce();

@@ -27,6 +27,8 @@ const QAM_TITLE = "Achievements Restored";
 const DEFAULT_SETTINGS: PluginSettings = {
   feature_enabled: true,
   debug_logging: false,
+  update_channel: "stable",
+  automatic_update_checks: true,
 };
 const EMPTY_VERSIONS: Versions = { plugin: "", decky: "", steamos: "" };
 
