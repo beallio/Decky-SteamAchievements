@@ -69,11 +69,10 @@ installer archive after changing any of those files:
 bash installer/build_bundle.sh
 ```
 
-The command creates `installer/Achievements Restored Installer.zip`. Keep the
+The command creates `installer/Decky-SteamAchievements Installer.zip`. Keep the
 configured GitHub repository URL and exact `Decky-SteamAchievements.zip`
-distribution asset aligned with the release workflow. The bundle name is a
-user-facing display artifact and deliberately differs from the canonical plugin
-ZIP name.
+distribution asset aligned with the release workflow. The installer bundle and
+plugin package both use the canonical product name; the QAM alone uses the title `Achievements Restored`.
 
 ## Release channels
 

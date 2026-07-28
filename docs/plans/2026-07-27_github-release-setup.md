@@ -59,8 +59,8 @@ bodies; do not assume a donor file's `on:` block is what this repo wants.
 2. **npm, not pnpm.** This repo has `package-lock.json`; Decky-Metadata's workflows may assume
    `pnpm`. Use `npm ci`.
 3. **The lockfile still carries the pre-rename identity.** `package.json` was renamed to
-   `decky-steamachievements`, but `package-lock.json` still records `achievements-restored` in
-   both its root `name` and `packages[""].name` (verified 2026-07-27). `npm ci` currently
+   `decky-steamachievements`, but `package-lock.json` still records the previous noncanonical
+   name in both its root `name` and `packages[""].name` (verified 2026-07-27). `npm ci` currently
    succeeds despite that mismatch, but the stale lockfile identity should still be corrected so
    all committed package metadata agrees. Task 0 covers it.
 
@@ -207,7 +207,7 @@ Work in order. Read each donor file before porting it; adapt rather than copy bl
 
 ### Task 0 — Realign the lockfile identity and dependency bootstrap
 
-`package-lock.json` still names the plugin `achievements-restored` in both its root `name` and
+`package-lock.json` still uses the previous noncanonical name in both its root `name` and
 `packages[""].name`, left behind by the earlier identity rename. Regenerate or edit it so both
 read `decky-steamachievements`, matching `package.json`.
 

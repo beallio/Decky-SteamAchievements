@@ -8,7 +8,7 @@ installer bundle on `feat/focusable-settings-versions-panel` into agreement with
 
 ## Scope
 
-- Preserve the display name `Achievements Restored` and canonical identity
+- Preserve `Achievements Restored` only as the QAM title and keep canonical identity
   `Decky-SteamAchievements` / `decky-steamachievements`.
 - Resolve the committed conflict markers in `AGENTS.md` while retaining both the runtime-feature
   guidance and the canonical identity contract.
@@ -18,9 +18,9 @@ installer bundle on `feat/focusable-settings-versions-panel` into agreement with
   the human stable-release gate.
 - Update the unreleased first-release notes without rewriting any published history; no stable
   tag or release exists yet.
-- Keep the user-facing installer bundle name `Achievements Restored Installer.zip`, update its
+- Rename the user-facing installer bundle to `Decky-SteamAchievements Installer.zip`, update its
   embedded guidance, and rebuild it from the adjacent sources.
-- Leave historical plans, review notes, and implementation session records unchanged.
+- Keep historical records accurate while marking this later naming decision explicitly.
 
 ## Tasks
 
@@ -35,8 +35,8 @@ installer bundle on `feat/focusable-settings-versions-panel` into agreement with
 
 - `npm install --package-lock-only` changes no dependency resolution.
 - Source metadata agreement and canonical/display identities pass.
-- No live tracked file outside historical/audit artifacts names `Achievements Restored.zip`,
-  recommends pnpm, or contains conflict markers.
+- No live tracked file uses the obsolete display-name plugin asset, recommends pnpm, or contains
+  conflict markers.
 - The installer archive contains the expected three payload files, embeds
   `DISTRIBUTION_ASSET = "Decky-SteamAchievements.zip"`, and matches its source files.
 - `npm test`, `npx tsc --noEmit`, `npm run build`, Python compilation/tests,

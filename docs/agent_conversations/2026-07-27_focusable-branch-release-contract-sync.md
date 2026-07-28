@@ -15,8 +15,8 @@ Branch: `feat/focusable-settings-versions-panel`
   `Decky-SteamAchievements.zip`, rolling `dev-build` prerelease, and human-gated stable channel.
 - Consolidated all not-yet-published work into the curated `0.1.0` changelog entry. No published
   changelog history was rewritten because the repository still has no stable tag or release.
-- Updated the desktop installer's embedded README and rebuilt
-  `installer/Achievements Restored Installer.zip`. The display-name bundle now embeds the exact
+- Updated the desktop installer's embedded README and rebuilt its tracked archive. A subsequent
+  naming decision renamed it to `installer/Decky-SteamAchievements Installer.zip`; it embeds the exact
   canonical distribution asset `Decky-SteamAchievements.zip` and intentionally ignores
   prereleases.
 
@@ -31,8 +31,8 @@ Branch: `feat/focusable-settings-versions-panel`
   `0.1.0`.
 - The installer ZIP passed archive integrity checks, contained only its expected payload, and
   byte-matched all three source files embedded in it.
-- Current, non-historical tracked content contains no conflict markers, stale
-  `Achievements Restored.zip` plugin-asset name, or pnpm contributor commands.
+- Current, non-historical tracked content contains no conflict markers, stale display-name
+  plugin asset, or pnpm contributor commands.
 - `git diff --check` passed after removing an extra newline from the sync plan.
 
 ## Remaining gates and follow-up

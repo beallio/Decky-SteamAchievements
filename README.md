@@ -1,4 +1,4 @@
-# Achievements Restored
+# Decky-SteamAchievements
 
 A [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) plugin that
 **brings back the achievement progress bar Valve removed** from the Steam Deck
@@ -46,15 +46,15 @@ data is available, and hides it whenever Steam supplies no achievement total.
 
 Decky Loader must already be installed. In SteamOS Desktop Mode:
 
-1. Download [`Achievements Restored Installer.zip`](installer/Achievements%20Restored%20Installer.zip).
+1. Download [`Decky-SteamAchievements Installer.zip`](installer/Decky-SteamAchievements%20Installer.zip).
 2. Extract the ZIP directly onto the Desktop. Keep the extracted
-   `DeckyPluginInstaller` folder beside `Install Achievements Restored`.
-3. Double-click **Install Achievements Restored**. If KDE marks the downloaded
+   `Decky-SteamAchievementsInstaller` folder beside `Install Decky-SteamAchievements`.
+3. Double-click **Install Decky-SteamAchievements**. If KDE marks the downloaded
    launcher as untrusted, review it and choose **Trust and Launch**.
 4. Confirm the plugin details and approve the administrator-authentication
    prompt. Return to Gaming Mode when installation finishes.
 
-`Achievements Restored Installer.zip` is the user-facing desktop bundle. Its
+`Decky-SteamAchievements Installer.zip` is the user-facing desktop bundle. Its
 installer downloads the canonical `Decky-SteamAchievements.zip` asset from the
 latest stable, non-prerelease GitHub release, validates the archive, backs up an
 existing plugin copy, installs the replacement, and restarts Decky Loader. It
@@ -80,7 +80,7 @@ Decky can also install the `Decky-SteamAchievements.zip` plugin package directly
    installation confirmation.
 
 Use the plugin ZIP for Decky's built-in installation flow. Do not select
-`Achievements Restored Installer.zip` there; that bundle is intended to be
+`Decky-SteamAchievements Installer.zip` there; that bundle is intended to be
 extracted and launched from SteamOS Desktop Mode as described above.
 
 ## Development

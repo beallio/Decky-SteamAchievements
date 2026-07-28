@@ -1,6 +1,6 @@
 # Release runbook
 
-Achievements Restored has three deliberately separate delivery paths: local orchestration,
+Decky-SteamAchievements has three deliberately separate delivery paths: local orchestration,
 remote base-branch updates, and release publication. Do not treat enabling one as authorization
 for the others.
 

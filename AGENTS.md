@@ -1,4 +1,4 @@
-# AGENTS.md — Achievements Restored
+# AGENTS.md — Decky-SteamAchievements
 
 Guidance for coding agents working in this repo. Keep it current.
 
@@ -85,13 +85,13 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Reset Decky's retained QAM scroll position without calling native DOM
   `focus()`; let `preferredFocus` and Steam's gamepad navigation own focus so
   users can return to the description with the D-pad.
-- `installer/Achievements Restored Installer.zip` is built from the adjacent
+- `installer/Decky-SteamAchievements Installer.zip` is built from the adjacent
   specialized installer sources with `bash installer/build_bundle.sh`; keep its
   GitHub repository URL and exact `Decky-SteamAchievements.zip` distribution
   asset aligned with the release workflow. The installer bundle name is a
   display artifact and deliberately differs from the canonical plugin ZIP.
 
-## Plugin identity — canonical vs display
+## Plugin identity — canonical vs QAM title
 
 Two names, deliberately different. Do not "unify" them.
 
@@ -101,9 +101,9 @@ Two names, deliberately different. Do not "unify" them.
   `plugin.json` `name`, Decky Loader keys the installed plugin directory
   (`~/homebrew/plugins/Decky-SteamAchievements/`) off it, and any self-updater must pass it
   verbatim to `install_plugin` to replace in place rather than installing a second copy.
-- **Display: `Achievements Restored`** — what the user sees. Lives in `src/index.tsx` as
-  `PLUGIN_NAME`, used for the `definePlugin` `name` and the QAM `titleView`. Also the product
-  name in `README.md`/`AGENTS.md` titles and the installer's user-facing artifacts.
+- **QAM title: `Achievements Restored`** — used only by `src/index.tsx` for `titleView`.
+  `definePlugin.name`, documentation, installer artifacts, backend logs, and internal namespaces
+  use the canonical name.
 
 Changing the canonical name changes the on-device install directory and the release asset
 filename, and breaks in-place updates for anyone already running the plugin. Treat it as a

@@ -2,7 +2,7 @@
 
 ## Context
 
-`Achievements Restored` currently installs the achievement restoration patch immediately and
+`Decky-SteamAchievements` currently installs the achievement restoration patch immediately and
 shows only a static status message in its Quick Access Menu panel. It has no persistent settings,
 no runtime feature switch, and no version display. The backend is a minimal lifecycle shell.
 
