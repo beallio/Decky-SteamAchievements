@@ -3,7 +3,7 @@
 # root. Exit non-zero to fail the gate. The engine separately enforces that
 # review notes are not deleted, so that is not repeated here.
 #
-# Achievements Restored is a Decky Loader plugin:
+# Decky-SteamAchievements is a Decky Loader plugin:
 #   - TypeScript/React frontend in src/*.tsx, built with rollup -> dist/
 #   - a minimal Python backend: main.py (plus backend/*.py if present)
 #
@@ -28,6 +28,8 @@ mkdir -p "$TMPDIR" "$XDG_CACHE_HOME" "$npm_config_cache" "$PYTHONPYCACHEPREFIX" 
 # --- source metadata agreement ---------------------------------------------
 python_bin="$(command -v python3 || command -v python)"
 "$python_bin" scripts/check_source_metadata.py
+"$python_bin" scripts/check_identity.py
+"$python_bin" scripts/check_installer_bundle.py
 
 # --- frontend: type-check + build -------------------------------------------
 if [[ -f package.json ]]; then
