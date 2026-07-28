@@ -182,9 +182,10 @@ class Plugin:
         # Lock order is invariant: in-process updater lock, then file lock.
         with self._state_lock:
             with self._runtime_state.locked():
-                settings = self._load_settings()
-                settings.update(self._updater.settings_payload())
-                _write_settings(self._settings_path, settings)
+                with self._settings_lock:
+                    settings = _read_settings(self._settings_path)
+                    settings.update(self._updater.settings_payload())
+                    _write_settings(self._settings_path, settings)
                 self._runtime_state._save_locked(self._updater.cache_payload())
 
     def _reconcile_pending_update_install(self) -> None:
