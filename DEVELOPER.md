@@ -7,12 +7,14 @@ The frontend restores Valve's own `MiniAchievements` component by supplying the
 unless a placement Valve's component cannot reach is explicitly required.
 
 The plugin also has a persistent backend settings contract, a reversible
-frontend feature lifecycle, and runtime version discovery. Settings default to
-achievement restoration enabled and debug logging disabled. The QAM settings
-and all three version rows must remain independently gamepad-focusable.
+frontend feature lifecycle, runtime version discovery, and a manifest-validated
+self-updater. Settings default to achievement restoration enabled, debug logging
+disabled, the stable update channel, and automatic update checks enabled. The
+QAM settings, updater controls, and all three version rows must remain
+independently gamepad-focusable.
 
 The live-verified root cause and runtime constraints are documented in
-[`HANDOFF.md`](HANDOFF.md).
+[`docs/deep-patch-notes.md`](docs/deep-patch-notes.md).
 
 ## Environment
 
@@ -44,8 +46,8 @@ scripts/orchestration/run-quality-gates
 ```
 
 The frontend build is written to `dist/index.js`. The orchestration gate also
-checks source-metadata identity/version agreement and compiles the Python entry
-point.
+checks source-metadata identity/version agreement, compiles and tests the Python
+backend, then builds and validates the canonical plugin ZIP.
 
 `rollup.config.js` carries the small Decky-compatible build configuration directly. Keep the
 React/Decky globals, manifest substitution, asset URL, sourcemap transform, and narrowly scoped
@@ -63,8 +65,19 @@ This builds the frontend and creates `Decky-SteamAchievements.zip` in the
 repository root. Local builds include the current short Git commit as version
 metadata.
 
-Install the package with Decky's developer ZIP flow, or deploy `dist/` and the
-backend files to `~/homebrew/plugins/Decky-SteamAchievements/` for local testing.
+Python source stays under `backend/` in the repository, but Decky adds only the
+installed plugin's `py_modules/` directory to Python's import path. Packaging
+therefore maps every repository `backend/<path>.py` file to
+`Decky-SteamAchievements/py_modules/backend/<path>.py` in the ZIP. A package or
+manual device deployment must never place first-party modules in a root-level
+`backend/` directory.
+
+Install the package with Decky's developer ZIP flow. For a manual local-testing
+deployment, place `main.py` at
+`~/homebrew/plugins/Decky-SteamAchievements/main.py`, the frontend bundle under
+`~/homebrew/plugins/Decky-SteamAchievements/dist/`, and repository backend
+sources under
+`~/homebrew/plugins/Decky-SteamAchievements/py_modules/backend/`.
 To build, validate, and copy the canonical ZIP to the Deck's Downloads directory
 in one step, run `scripts/decky package-push`.
 
@@ -86,7 +99,14 @@ panel use the manifest display name `Achievements Restored`.
 ## Release channels
 
 - Every push to `dev` refreshes the replaceable `dev-build` prerelease with one
-  `Decky-SteamAchievements.zip` asset.
+  `Decky-SteamAchievements.zip` asset. Its packaged version is
+  `X.Y.Z-dev.g<sha>`, but the mutable tag has no manifest and is intentionally
+  undiscoverable by the in-plugin updater.
+- `scripts/request_dev_release.sh X.Y.Z [commit]` validates and dispatches the
+  separate manual immutable-development workflow. It publishes a permanent
+  `vX.Y.Z-dev.g<sha>` prerelease with the canonical ZIP, checksum, and schema-1
+  manifest. Running or publishing it is a deliberate human action, never an
+  implementation side effect.
 - Stable releases use permanent `vX.Y.Z` tags and add the checksum and release
   manifest alongside the canonical ZIP.
 - Stable promotion remains a human gate. Follow
@@ -98,9 +118,13 @@ panel use the manifest display name `Achievements Restored`.
 - `src/index.tsx` — plugin entry and QAM content.
 - `src/achievementBar.tsx` — achievement restoration and cleanup lifecycle.
 - `src/components/` — focusable QAM presentation components.
-- `main.py` — settings, runtime versions, and backend lifecycle.
+- `src/controllers/pluginUpdate*` — updater UI state machine and handoff lifecycle.
+- `src/runtime/updatePoller.ts` — plugin-scope six-hour background polling.
+- `backend/updater/` — pure release discovery, integrity, cache, and pending-install logic.
+- `backend/runtime_state.py` — atomic flock-protected updater runtime state.
+- `main.py` — settings, updater RPC offload/reconciliation, runtime versions, and lifecycle.
 - `installer/` — specialized Desktop installer sources and bundle.
-- `.github/workflows/` — CI, rolling development release, and stable release jobs.
+- `.github/workflows/` — CI, rolling and immutable development release, and stable release jobs.
 - `scripts/` — build/package/release helpers and the orchestration symlink.
 - `docs/` — plans, specifications, reviews, and runbooks.
 - `research/` — ignored reverse-engineering scratch; only curated reports and

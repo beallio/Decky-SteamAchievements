@@ -1,4 +1,32 @@
-# Deep-patch notes — why the route patch fails, and the real fix
+# Achievement-bar handoff and deep-patch notes
+
+This tracked document is the authoritative handoff for the achievement-bar root
+cause, live runtime constraints, failed approaches, and shipped fix. Scratch
+research under `research/` is intentionally gitignored and is not required in a
+clean checkout.
+
+## Confirmed root cause
+
+Valve's `MiniAchievements` component was not deleted. Steam changelist 10546225
+(SteamTracking commit `29f8d5c9a5c3`, around 2026-03-24) added this render guard:
+
+```js
+if (!this.props.onSeek) return null;
+```
+
+The Steam Deck game-details header renders its PlayBar with `onSeek: undefined`,
+so the guard hides the component. Supplying `onSeek` to the live instance and
+forcing a re-render restored Valve's own bar with correct achievement totals on
+Steam Deck build CL 10840511. The plugin must preserve Valve's earlier native
+guards for missing totals and zero-progress uninstalled games.
+
+Steam's execution contexts are split: webpack modules and stores live in
+`SharedJSContext`, while the Big Picture window contains the app-details DOM and
+React fibers. Capture webpack require through `webpackChunksteamui.push`, inspect
+the factory map (`R.m`), and instantiate matching modules with `R(id)`; the
+captured handle's cache (`R.c`) reads empty. Resolve components and stores by
+stable source signatures, never by the historical module IDs or hashed CSS
+classes recorded during the investigation.
 
 On-device findings (Steam Deck, Gaming Mode / gamescope, CL 10840511) from the
 device smoke test of the first `feat/achievement-bar-patch` build. These supersede

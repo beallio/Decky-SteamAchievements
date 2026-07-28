@@ -11,6 +11,7 @@
 #   1. TypeScript type-check (tsc --noEmit) and rollup production build
 #   2. Python backend byte-compile (syntax check) of main.py and backend/*.py
 #   3. Python tests when tests/ exists
+#   4. Build and validate the canonical plugin ZIP without rebuilding the frontend
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -66,9 +67,21 @@ if [[ -d tests ]] && find tests \( -name 'test_*.py' -o -name '*_test.py' \) -pr
   uv run --with pytest -- pytest -q
 fi
 
+# --- package + archive validation -------------------------------------------
+if [[ -f package.json ]]; then
+  base_version="$("$python_bin" -c 'import json; print(json.load(open("package.json", encoding="utf-8"))["version"])')"
+  node scripts/package.mjs --no-hash
+  "$python_bin" scripts/validate_plugin_zip.py Decky-SteamAchievements.zip \
+    --expected-version "$base_version"
+  "$python_bin" scripts/check_backend_archive_parity.py Decky-SteamAchievements.zip \
+    --project-root "$repo_root"
+fi
+
 # --- release version drift guard --------------------------------------------
 if [[ -f package.json && -f scripts/version_guard.py ]]; then
-  base_version="$("$python_bin" -c 'import json; print(json.load(open("package.json", encoding="utf-8"))["version"])')"
+  if [[ -z "${base_version:-}" ]]; then
+    base_version="$("$python_bin" -c 'import json; print(json.load(open("package.json", encoding="utf-8"))["version"])')"
+  fi
   "$python_bin" scripts/version_guard.py check-drift "$base_version"
 fi
 

@@ -10,6 +10,44 @@ Release entries are curated by hand and dated. A release must not be cut against
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-28
+
+Adds a complete, gamepad-first self-updater and hardened Decky Python packaging.
+
+The updater, release discovery, installer handoff, and runtime-state contracts now follow the
+live-validated SDH-ludusavi design while preserving this plugin's identity and UI behavior.
+
+### Added
+
+- An SDH-ludusavi-style **Updates** section in the Decky QAM panel with independently
+  focusable installed-version, update-channel, automatic-check, status, and **Check now**
+  rows.
+- Stable and immutable-development release discovery with signed metadata checks, whole-ZIP
+  SHA-256 validation, rate-limit handling, cached results, and Decky's native confirmed
+  installation flow.
+- Plugin-scope background update polling with deduplicated notifications and startup
+  reconciliation for pending installer handoffs.
+- Automated one-to-one validation that every repository `backend/**/*.py` source is packaged
+  exactly once beneath `py_modules/backend/`.
+
+### Fixed
+
+- Package first-party Python modules under Decky's supported `py_modules` import root,
+  eliminating the on-device `ModuleNotFoundError: No module named 'backend'` startup failure.
+- Serialize settings and updater-runtime mutations across threads and processes without
+  losing overlapping changes.
+- Preserve pending update state across Decky's unload/reload window and reject ambiguous
+  release assets before installation.
+- Fail closed when development-release dispatch, packaged module layout, release provenance,
+  or archive validation does not match the expected plugin identity and version.
+
+### Changed
+
+- Development delivery now distinguishes the replaceable ZIP-only `dev-build` from permanent,
+  manifest-backed development releases that the in-plugin updater can discover.
+- Developer guidance now documents the repository `backend/` source layout versus the
+  installed `py_modules/backend/` runtime layout and the validated updater lifecycle.
+
 ## [0.1.0] - 2026-07-27
 
 Initial development release.

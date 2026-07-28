@@ -53,7 +53,7 @@ behavior from this plan when the implementation can be copied and renamed direct
 
 These are the only intentional behavioral differences from the donor updater.
 
-1. **Preserve split identity.** Discovery must require manifest `pluginName` exactly
+1. **Preserve split identity.** Discovery must require the Decky display name in manifest `pluginName` exactly
    `Achievements Restored`, `packageName` exactly `decky-steamachievements`, manifest asset name
    `Decky-SteamAchievements-<tag>.manifest.json`, and ZIP asset name exactly
    `Decky-SteamAchievements.zip`. The GitHub client targets
@@ -299,7 +299,7 @@ optimistic `installedOverride`, pending-install suppression, install-time revali
 record-before-handoff ordering, the 3-second installer race, success confirmation, failure clear,
 and disposal of late timeout effects.
 
-Adapt controller logging to the target backend/logging surface and change user-facing toast
+Adapt controller logging to the target backend/logging surface and change the user-facing QAM toast
 identity to **Achievements Restored**. In `deckyInstaller.ts`, pass **Achievements Restored** to
 both supported `utilities/install_plugin` call forms; retain update type `2`, downgrade type `3`,
 and the validated whole-ZIP hash.
@@ -367,7 +367,7 @@ Keep the 30-second initial delay and 6-hour interval constants. Each tick must:
 - skip when disposed, already in flight, automatic checks are disabled, or an install is pending;
 - pass `effective_installed_version` and `force=false` to the backend;
 - log and continue after RPC failures;
-- toast **Achievements Restored Update Available** once for a new candidate tag and persist
+- show the Decky QAM toast **Achievements Restored Update Available** once for a new candidate tag and persist
   `last_notified_tag` only after issuing the toast;
 - suppress all late notification/marking side effects after disposal.
 
@@ -476,7 +476,7 @@ fixtures:
    wrong-identity, wrong-channel, duplicate-ZIP, bad-hash, mutable `dev-build`, and malformed
    releases are rejected.
 3. Revalidation catches changed hash, artifact URL, version, or manifest before Decky is called.
-4. The installer call receives `Achievements Restored`, the exact candidate version and SHA-256,
+4. The installer call receives the Decky display name `Achievements Restored`, the exact candidate version and SHA-256,
    and type 2/3 as appropriate.
 5. Recording pending state happens before installer handoff; rejection clears it; success and
    reload produce optimistic then reconciled current-version state.

@@ -10,16 +10,16 @@ own `MiniAchievements` component by supplying the `onSeek` prop its guard needs.
 Do **not** reimplement the bar unless a placement Valve's component can't reach
 is explicitly required.
 
-Authoritative background: `HANDOFF.md` (root cause, live-verified) and
-`research/diffs/removal_onSeek_guard.md` (the one-line diff + bisect).
+Authoritative background: `docs/deep-patch-notes.md` (root cause, one-line guard
+diff, live runtime constraints, failed approaches, and the shipped mechanism).
 
 ## Environment & scratch
 
 - `direnv allow` loads `.envrc`, which points all caches/scratch at
   `/tmp/Decky-SteamAchievements` (`TMPDIR`, `XDG_CACHE_HOME`, `npm_config_cache`,
   `PYTHONPYCACHEPREFIX`). Keep exploratory/large files there, never in the repo.
-- `research/` is gitignored; only curated reports under `research/reports` and
-  `research/diffs` are meant to persist.
+- `research/` is gitignored scratch. Put durable, clean-checkout guidance under
+  tracked `docs/` paths.
 
 ## Build / test
 
@@ -27,7 +27,8 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - `npm run package` builds `Decky-SteamAchievements.zip` via `scripts/package.mjs`.
 - `npm test` runs vitest; `uv run --with pytest -- pytest -q` runs backend tests.
 - `scripts/orchestration/run-quality-gates` runs metadata agreement, typecheck,
-  build, frontend tests, Python compilation/tests, and version drift checks.
+  build, frontend tests, Python compilation/tests, package validation, and
+  version drift checks.
 - `scripts/check_tdd.sh` enforces a matching test for new `src/*.py` (backend).
 
 ## Decky runtime facts (for the patch)
@@ -72,11 +73,15 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 ## Conventions
 
 - TypeScript/TSX for frontend under `src/`; Python backend in `main.py`/`backend/`.
+- Keep repository Python modules under `backend/`, but map them to
+  `<plugin>/py_modules/backend/` in packages and manual device deployments;
+  Decky does not add the installed plugin root to Python's import path.
 - Terse, factual commit messages; do not add Claude/AI trailers.
 - Prefer resilient lookups and graceful failure — a broken patch must never crash
   the Steam UI (wrap in try/catch, log, no-op on failure).
 - Persistent settings live in Decky's plugin settings directory and default to
-  achievement restoration enabled with verbose diagnostics disabled.
+  achievement restoration enabled, verbose diagnostics disabled, the stable
+  update channel, and automatic update checks enabled.
 - Disabling restoration must clean injected props from mounted instances, not
   only remove route/prototype patches.
 - Report the installed plugin version from the packaged manifest; resolve Decky
@@ -90,6 +95,18 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   GitHub repository URL and exact `Decky-SteamAchievements.zip` distribution
   asset aligned with the release workflow. The installer bundle name is a
   display artifact and deliberately differs from the canonical plugin ZIP.
+- Updater discovery and integrity logic lives under `backend/updater/`; runtime
+  cache and pending-install state live separately in
+  `DECKY_PLUGIN_RUNTIME_DIR/updater-state.json` behind bounded `fcntl.flock` and
+  atomic replace writes.
+- Frontend updater state lives in `src/controllers/pluginUpdate*`, Decky handoff
+  in `src/utils/deckyInstaller.ts`, and plugin-scope polling in
+  `src/runtime/updatePoller.ts`. The installer argument is the Decky display
+  name `Achievements Restored`, even though the ZIP/root/folder remain
+  `Decky-SteamAchievements`.
+- Record pending installs before Decky handoff, confirm accepted handoffs, clear
+  failures, and reread locked runtime state before startup reconciliation so
+  concurrent reload instances cannot resurrect or double-promote stale state.
 
 ## Plugin identity — distribution vs Decky display
 
@@ -116,7 +133,11 @@ The installed `Storage Cleaner` plugin is the reference for this supported split
 ## Release channels
 
 - Pushes to `dev` run CI and refresh the replaceable `dev-build` prerelease with
-  exactly one `Decky-SteamAchievements.zip` asset.
+  exactly one `Decky-SteamAchievements.zip` asset. It is stamped
+  `X.Y.Z-dev.g<sha>` but has no manifest and remains undiscoverable.
+- Manual immutable development publication uses
+  `scripts/request_dev_release.sh` and `.github/workflows/immutable-dev-release.yml`
+  to create `vX.Y.Z-dev.g<sha>` with exactly the ZIP, checksum, and manifest.
 - Permanent `vX.Y.Z` tags trigger stable publication of the ZIP, checksum, and
   release manifest only after the fail-closed prepublication checks pass.
 - `scripts/release.sh X.Y.Z` prepares a stable release locally and never pushes.

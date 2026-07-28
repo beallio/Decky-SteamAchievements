@@ -18,8 +18,9 @@ REQUIRED_FILES = (
     "package.json",
     "plugin.json",
     "dist/index.js",
+    "py_modules/backend/__init__.py",
 )
-REQUIRED_DIRECTORIES = ("dist/",)
+REQUIRED_DIRECTORIES = ("dist/", "py_modules/backend/")
 FORBIDDEN_PREFIXES = (
     "node_modules/",
     "src/",
@@ -31,7 +32,6 @@ FORBIDDEN_PREFIXES = (
     ".pytest_cache/",
     ".ruff_cache/",
     ".venv/",
-    "backend/",
     "research/",
 )
 
@@ -87,6 +87,22 @@ def validate_archive(
                     raise ValidationError(f"ZIP contains unsafe path: {name}")
                 if any(rel_path.startswith(item) for item in FORBIDDEN_PREFIXES):
                     raise ValidationError(f"ZIP contains forbidden path: {name}")
+                if rel_path == "backend" or rel_path.startswith("backend/"):
+                    raise ValidationError(
+                        f"ZIP contains forbidden root backend path; "
+                        f"package first-party modules under py_modules/backend/: {name}"
+                    )
+                if rel_path == "py_modules/backend" or rel_path.startswith(
+                    "py_modules/backend/"
+                ):
+                    if "__pycache__" in parts:
+                        raise ValidationError(
+                            f"ZIP contains forbidden backend cache path: {name}"
+                        )
+                    if not name.endswith("/") and not rel_path.endswith(".py"):
+                        raise ValidationError(
+                            f"ZIP contains forbidden non-Python backend payload: {name}"
+                        )
                 if rel_path.endswith((".pyc", ".pyo")):
                     raise ValidationError(f"ZIP contains forbidden file: {name}")
 
