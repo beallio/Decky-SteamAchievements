@@ -67,16 +67,28 @@ def test_stable_release_publishes_exact_updater_assets() -> None:
     content = read(".github/workflows/release.yml")
     preconditions = read("scripts/check_release_preconditions.sh")
     precondition_step = content.index("scripts/check_release_preconditions.sh")
+    package_step = content.index("- name: Build stable release assets")
     publish_step = content.index("- name: Publish stable GitHub Release")
+    package = content.split("- name: Build stable release assets", 1)[1].split(
+        "- name: Publish stable GitHub Release", 1
+    )[0]
     publish = content.split("- name: Publish stable GitHub Release", 1)[1]
     assert "Decky-SteamAchievements.zip" in publish
     assert '"Decky-SteamAchievements-$TAG.zip.sha256"' in publish
     assert '"Decky-SteamAchievements-$TAG.manifest.json"' in publish
     assert "--emit-release-metadata" in content
     assert "--channel stable" in content
-    assert precondition_step < publish_step
+    assert precondition_step < package_step < publish_step
     assert "python3 scripts/validate_plugin_zip.py" in preconditions
     assert '--expected-version "$version"' in preconditions
+    assert "sha256sum -c" in package
+    assert "scripts/validate_plugin_zip.py" in package
+    assert "scripts/check_backend_archive_parity.py" in package
+    assert 'gh release view "$TAG"' in publish
+    assert 'gh release upload "$TAG"' in publish
+    assert "--clobber" in publish
+    assert 'gh release edit "$TAG"' in publish
+    assert 'gh release create "$TAG"' in publish
 
 
 def test_rolling_dev_stays_zip_only_and_stamps_commit_version() -> None:
