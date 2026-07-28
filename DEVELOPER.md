@@ -7,9 +7,11 @@ The frontend restores Valve's own `MiniAchievements` component by supplying the
 unless a placement Valve's component cannot reach is explicitly required.
 
 The plugin also has a persistent backend settings contract, a reversible
-frontend feature lifecycle, and runtime version discovery. Settings default to
-achievement restoration enabled and debug logging disabled. The QAM settings
-and all three version rows must remain independently gamepad-focusable.
+frontend feature lifecycle, runtime version discovery, and a manifest-validated
+self-updater. Settings default to achievement restoration enabled, debug logging
+disabled, the stable update channel, and automatic update checks enabled. The
+QAM settings, updater controls, and all three version rows must remain
+independently gamepad-focusable.
 
 The live-verified root cause and runtime constraints are documented in
 [`HANDOFF.md`](HANDOFF.md).
@@ -86,7 +88,14 @@ panel use the manifest display name `Achievements Restored`.
 ## Release channels
 
 - Every push to `dev` refreshes the replaceable `dev-build` prerelease with one
-  `Decky-SteamAchievements.zip` asset.
+  `Decky-SteamAchievements.zip` asset. Its packaged version is
+  `X.Y.Z-dev.g<sha>`, but the mutable tag has no manifest and is intentionally
+  undiscoverable by the in-plugin updater.
+- `scripts/request_dev_release.sh X.Y.Z [commit]` validates and dispatches the
+  separate manual immutable-development workflow. It publishes a permanent
+  `vX.Y.Z-dev.g<sha>` prerelease with the canonical ZIP, checksum, and schema-1
+  manifest. Running or publishing it is a deliberate human action, never an
+  implementation side effect.
 - Stable releases use permanent `vX.Y.Z` tags and add the checksum and release
   manifest alongside the canonical ZIP.
 - Stable promotion remains a human gate. Follow
@@ -98,9 +107,13 @@ panel use the manifest display name `Achievements Restored`.
 - `src/index.tsx` — plugin entry and QAM content.
 - `src/achievementBar.tsx` — achievement restoration and cleanup lifecycle.
 - `src/components/` — focusable QAM presentation components.
-- `main.py` — settings, runtime versions, and backend lifecycle.
+- `src/controllers/pluginUpdate*` — updater UI state machine and handoff lifecycle.
+- `src/runtime/updatePoller.ts` — plugin-scope six-hour background polling.
+- `backend/updater/` — pure release discovery, integrity, cache, and pending-install logic.
+- `backend/runtime_state.py` — atomic flock-protected updater runtime state.
+- `main.py` — settings, updater RPC offload/reconciliation, runtime versions, and lifecycle.
 - `installer/` — specialized Desktop installer sources and bundle.
-- `.github/workflows/` — CI, rolling development release, and stable release jobs.
+- `.github/workflows/` — CI, rolling and immutable development release, and stable release jobs.
 - `scripts/` — build/package/release helpers and the orchestration symlink.
 - `docs/` — plans, specifications, reviews, and runbooks.
 - `research/` — ignored reverse-engineering scratch; only curated reports and

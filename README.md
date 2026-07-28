@@ -40,10 +40,30 @@ data is available, and hides it whenever Steam supplies no achievement total.
 - A persistent **Achievement bar** toggle that can remove or restore the bar on
   the currently open game page without reloading Steam.
 - A persistent **Debug logging** toggle for verbose troubleshooting output.
+- A gamepad-focusable **Updates** panel for manual checks, automatic background
+  checks, stable or development release selection, and Decky's native install
+  confirmation flow.
 - A gamepad-focusable **Versions** panel showing the installed plugin, Decky
   Loader, and SteamOS versions.
 - Valve's own achievement rendering and native installed/data guards; the plugin
   does not fabricate achievement data or replace Valve's bar.
+
+## In-plugin updates
+
+The Updates section defaults to the stable channel and automatic checks. It can
+check immediately on demand, or check in the background while the plugin is
+loaded and show one toast per newly discovered release. Development releases
+are opt-in behind a warning and use immutable `vX.Y.Z-dev.g<sha>` prerelease
+tags; the mutable `dev-build` convenience release is intentionally ignored by
+update discovery.
+
+Before offering an update, the backend validates the release manifest, plugin
+identity, channel, exact ZIP asset, and whole-archive SHA-256. It repeats that
+validation immediately before installation. The plugin never overwrites itself
+or stages the ZIP: accepting the action hands the validated URL, version, and
+hash to Decky Loader's supported confirmation prompt. If that private Decky API
+is unavailable, the panel links to the release notes for manual ZIP installation
+or the Desktop installer fallback described below.
 
 ## Install on Steam Deck
 

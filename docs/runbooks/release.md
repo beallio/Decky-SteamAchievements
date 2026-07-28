@@ -52,6 +52,35 @@ metadata, changelog, monotonicity, quality gates, and the ZIP before publishing 
 - `Decky-SteamAchievements-vX.Y.Z.zip.sha256`
 - `Decky-SteamAchievements-vX.Y.Z.manifest.json`
 
+## Publish a discoverable development release
+
+The push-triggered `dev-build` release is a replaceable convenience channel. It
+contains exactly `Decky-SteamAchievements.zip`, stamps the packaged version as
+`X.Y.Z-dev.g<sha>`, and deliberately has no checksum manifest for updater
+discovery.
+
+To publish a permanent development candidate for in-plugin discovery, start
+from a clean tree whose `package.json` and `plugin.json` contain the next stable
+base version, authenticate `gh`, and run:
+
+```bash
+scripts/request_dev_release.sh X.Y.Z [commit]
+```
+
+The helper validates the version, clean tree, GitHub authentication, commit,
+source metadata, and stable-tag ordering before dispatching
+`.github/workflows/immutable-dev-release.yml`. The workflow derives
+`X.Y.Z-dev.g<sha>` / `vX.Y.Z-dev.g<sha>`, refuses an existing tag, reruns the
+full quality gates, and publishes exactly:
+
+- `Decky-SteamAchievements.zip`
+- `Decky-SteamAchievements-vX.Y.Z-dev.g<sha>.zip.sha256`
+- `Decky-SteamAchievements-vX.Y.Z-dev.g<sha>.manifest.json`
+
+The immutable workflow is manual. Code implementation, orchestration
+finalization, and the existence of this helper do not authorize dispatching it,
+creating the tag, or publishing the prerelease.
+
 ### Recover a failed publication without rewriting the tag
 
 If the tag-triggered workflow fails because of the workflow itself, fix and promote the workflow
@@ -76,9 +105,10 @@ it cannot repair invalid source or release metadata already captured by the tag.
    require the separate `ORCH_PUSH=1` authorization; committed `orchestration.conf` leaves it at
    its default `0`. Enable that deliberately and separately when remote base-branch updates are
    wanted.
-3. **Engine-driven release dispatch.** This remains out of scope. The finalize hook does not
-   invoke `gh`, dispatch a workflow, or publish anything. Automating dispatch requires a helper
-   and a separate reviewed plan.
+3. **Human-requested release dispatch.** The finalize hook does not invoke `gh`,
+   dispatch a workflow, or publish anything. Stable publication follows the tag
+   flow above; immutable development publication begins only when a human runs
+   `scripts/request_dev_release.sh`.
 
 Do not edit `orchestration.conf.local` as part of a release implementation round. It is
 machine-local state, and changing it is a separate human decision.
@@ -99,4 +129,5 @@ git push origin dev
 The `dev` push keeps its base version ahead of the stable tag and triggers
 `.github/workflows/dev-release.yml`. That workflow moves the replaceable `dev-build` tag to the
 current `dev` head and refreshes the single rolling prerelease with exactly one asset,
-`Decky-SteamAchievements.zip`.
+`Decky-SteamAchievements.zip`. It does not create the immutable development
+release; that remains a separate manual action.
