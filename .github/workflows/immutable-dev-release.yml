@@ -1,0 +1,130 @@
+name: Immutable Dev Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_version:
+        description: Next stable base version (X.Y.Z)
+        required: true
+        type: string
+      commit:
+        description: Commit SHA or ref to package (defaults to dev)
+        required: false
+        type: string
+
+concurrency:
+  group: immutable-dev-release
+  cancel-in-progress: false
+
+jobs:
+  publish-immutable-dev:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Validate inputs
+        shell: bash
+        env:
+          INPUT_BASE_VERSION: ${{ inputs.base_version }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_BASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "immutable-dev-release: base_version must be X.Y.Z" >&2
+            exit 1
+          }
+          commit_ref="${INPUT_COMMIT:-dev}"
+          [[ "$commit_ref" =~ ^[A-Za-z0-9._/-]+$ ]] || {
+            echo "immutable-dev-release: invalid commit ref" >&2
+            exit 1
+          }
+          echo "BASE_VERSION=$INPUT_BASE_VERSION" >> "$GITHUB_ENV"
+          echo "COMMIT_REF=$commit_ref" >> "$GITHUB_ENV"
+
+      - name: Check out requested revision and tags
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ env.COMMIT_REF }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install tools and dependencies
+        run: |
+          python -m pip install "uv==0.11.28"
+          npm ci
+
+      - name: Resolve and validate immutable identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          plugin_version="$(node -p "require('./plugin.json').version")"
+          [[ "$package_version" == "$BASE_VERSION" && "$plugin_version" == "$BASE_VERSION" ]] || {
+            echo "immutable-dev-release: base version does not match package.json/plugin.json" >&2
+            exit 1
+          }
+
+          FULL_SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="$(git rev-parse --short=7 HEAD)"
+          DEV_VERSION="$BASE_VERSION-dev.g$SHORT_SHA"
+          DEV_TAG="v$DEV_VERSION"
+          git fetch --tags origin
+          if git rev-parse "refs/tags/$DEV_TAG" >/dev/null 2>&1; then
+            echo "immutable-dev-release: tag $DEV_TAG already exists" >&2
+            exit 1
+          fi
+          python3 scripts/version_guard.py check-base "$BASE_VERSION"
+          echo "FULL_SHA=$FULL_SHA" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "DEV_VERSION=$DEV_VERSION" >> "$GITHUB_ENV"
+          echo "DEV_TAG=$DEV_TAG" >> "$GITHUB_ENV"
+
+      - name: Run full quality gates
+        run: scripts/orchestration-hooks/quality-gates
+
+      - name: Build and validate immutable development assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/package.mjs \
+            --release \
+            --release-version "$DEV_VERSION" \
+            --release-tag "$DEV_TAG" \
+            --channel dev \
+            --emit-release-metadata
+          sha256sum -c "Decky-SteamAchievements-$DEV_TAG.zip.sha256"
+          python3 scripts/validate_plugin_zip.py \
+            Decky-SteamAchievements.zip \
+            --expected-root Decky-SteamAchievements \
+            --expected-name "Achievements Restored" \
+            --expected-version "$DEV_VERSION"
+          node -e 'const fs=require("fs"); const p="Decky-SteamAchievements-"+process.env.DEV_TAG+".manifest.json"; const m=JSON.parse(fs.readFileSync(p)); if(m.schemaVersion!==1||m.pluginName!=="Achievements Restored"||m.packageName!=="decky-steamachievements"||m.version!==process.env.DEV_VERSION||m.tag!==process.env.DEV_TAG||m.channel!=="dev"||m.assetName!=="Decky-SteamAchievements.zip") process.exit(1)'
+
+      - name: Create immutable tag and prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$DEV_TAG" "$FULL_SHA"
+          git push origin "$DEV_TAG"
+          gh release create "$DEV_TAG" \
+            Decky-SteamAchievements.zip \
+            "Decky-SteamAchievements-$DEV_TAG.zip.sha256" \
+            "Decky-SteamAchievements-$DEV_TAG.manifest.json" \
+            --verify-tag \
+            --prerelease \
+            --title "Achievements Restored v$DEV_VERSION (Development)" \
+            --notes "Immutable development build from commit $FULL_SHA."

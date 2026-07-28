@@ -6,7 +6,7 @@
 game-details page — the compact "ACHIEVEMENTS n/total" stat with a progress bar
 that sat next to PLAY TIME, plus a blue completion ribbon at 100%.
 
-**Root cause (already proven — see `HANDOFF.md`).** The bar is Valve's own
+**Root cause (already proven — see `docs/deep-patch-notes.md`).** The bar is Valve's own
 `MiniAchievements` component inside the app-details PlayBar (`GameStatsSection`).
 It was NOT deleted. In Steam changelist 10546225 (~2026-03-24) Valve added one
 guard to its `render()`: `if (!this.props.onSeek) return null;`. The Deck's
@@ -25,7 +25,7 @@ Steam's render.
 - `src/achievementBar.tsx` — current scaffold: `installAchievementBarPatch()`.
 - `src/index.tsx` — `definePlugin`; installs the patch, unpatches on dismount.
 - `src/log.ts` — namespaced logger.
-- `HANDOFF.md` — authoritative research (root cause, runtime facts, mobx caveat,
+- `docs/deep-patch-notes.md` — authoritative research (root cause, runtime facts, mobx caveat,
   store handle, the resilient-matching guidance). Read it before starting.
 
 **Constraints (from `AGENTS.md`).** Match components by stable signatures (the
@@ -192,7 +192,7 @@ needed. All work is code + unit tests only; there is NO device step in this plan
    - **Primary:** the target is the node whose component function source contains
      the literal `onSeek("achievements")`, OR whose element carries the Valve
      CSS-module class key `MiniAchievements`/`GameStatsSection` (resolve the class
-     map via require-capture/`findModuleChild` if needed — see `HANDOFF.md`
+     map via require-capture/`findModuleChild` if needed — see `docs/deep-patch-notes.md`
      §runtime facts). Never hashed classnames or minified module ids.
    - **Secondary:** among signature matches, require own props `onSeek == null` +
      `details` + `overview`, and never overwrite an `onSeek` that is already a function.
@@ -300,7 +300,7 @@ Exact sequence (record each result as the approval evidence):
 4. **Toggle off:** disable the plugin, reload, confirm the page returns to count = 0
    (clean unpatch, no residual DOM).
 
-Reference procedure/scripts: `HANDOFF.md` (§runtime facts).
+Reference procedure: `docs/deep-patch-notes.md` (runtime facts).
 If any step fails (bar absent when ON, not removed when OFF, or the route path /
 render-stage / tree shape differs from Task 1), that is **CHANGES_REQUESTED on this
 plan** — the reviewer records it as a review note and the implementer resolves it in

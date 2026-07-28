@@ -31,7 +31,6 @@ FORBIDDEN_PREFIXES = (
     ".pytest_cache/",
     ".ruff_cache/",
     ".venv/",
-    "backend/",
     "research/",
 )
 
@@ -87,6 +86,8 @@ def validate_archive(
                     raise ValidationError(f"ZIP contains unsafe path: {name}")
                 if any(rel_path.startswith(item) for item in FORBIDDEN_PREFIXES):
                     raise ValidationError(f"ZIP contains forbidden path: {name}")
+                if rel_path.startswith("backend/") and not rel_path.endswith(".py"):
+                    raise ValidationError(f"ZIP contains forbidden backend path: {name}")
                 if rel_path.endswith((".pyc", ".pyo")):
                     raise ValidationError(f"ZIP contains forbidden file: {name}")
 

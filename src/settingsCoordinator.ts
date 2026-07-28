@@ -1,4 +1,10 @@
-import type { PluginSettings } from "./backend";
+import type { PluginSettings, UpdateChannel } from "./backend";
+
+type SettingOperation =
+  | "feature"
+  | "debug"
+  | "updateChannel"
+  | "automaticChecks";
 
 type FeatureController = {
   readonly enabled: boolean;
@@ -11,6 +17,8 @@ export type SettingsSnapshot = {
   loaded: boolean;
   featureBusy: boolean;
   debugBusy: boolean;
+  updateChannelBusy: boolean;
+  automaticChecksBusy: boolean;
 };
 
 type SettingsCoordinatorOptions = {
@@ -19,8 +27,10 @@ type SettingsCoordinatorOptions = {
   loadSettings: () => Promise<PluginSettings>;
   setFeatureEnabled: (enabled: boolean) => Promise<PluginSettings>;
   setDebugLogging: (enabled: boolean) => Promise<PluginSettings>;
+  setUpdateChannel: (channel: UpdateChannel) => Promise<PluginSettings>;
+  setAutomaticUpdateChecks: (enabled: boolean) => Promise<PluginSettings>;
   setVerboseLogging: (enabled: boolean) => void;
-  onError?: (operation: "load" | "feature" | "debug", error: unknown) => void;
+  onError?: (operation: "load" | SettingOperation, error: unknown) => void;
 };
 
 type Listener = (snapshot: SettingsSnapshot) => void;
@@ -44,6 +54,8 @@ export class SettingsCoordinator {
       loaded: false,
       featureBusy: false,
       debugBusy: false,
+      updateChannelBusy: false,
+      automaticChecksBusy: false,
     };
   }
 
@@ -87,6 +99,14 @@ export class SettingsCoordinator {
     return this.enqueue("debug", enabled);
   }
 
+  setUpdateChannel(channel: UpdateChannel): Promise<void> {
+    return this.enqueue("updateChannel", channel);
+  }
+
+  setAutomaticUpdateChecks(enabled: boolean): Promise<void> {
+    return this.enqueue("automaticChecks", enabled);
+  }
+
   dispose(): void {
     if (!this.active) return;
     this.active = false;
@@ -116,9 +136,19 @@ export class SettingsCoordinator {
     this.update({ settings: next });
   }
 
-  private enqueue(operation: "feature" | "debug", enabled: boolean): Promise<void> {
+  private enqueue(
+    operation: SettingOperation,
+    value: boolean | UpdateChannel,
+  ): Promise<void> {
     if (!this.active || !this.state.loaded) return Promise.resolve();
-    const busyKey = operation === "feature" ? "featureBusy" : "debugBusy";
+    const busyKey =
+      operation === "feature"
+        ? "featureBusy"
+        : operation === "debug"
+          ? "debugBusy"
+          : operation === "updateChannel"
+            ? "updateChannelBusy"
+            : "automaticChecksBusy";
     if (this.state[busyKey]) return Promise.resolve();
     this.update({ [busyKey]: true });
 
@@ -127,22 +157,38 @@ export class SettingsCoordinator {
       const previous = { ...this.state.settings };
 
       if (operation === "feature") {
+        const enabled = value as boolean;
         if (!this.options.controller.setEnabled(enabled)) return;
         this.update({
           settings: { ...previous, feature_enabled: enabled },
         });
-      } else {
+      } else if (operation === "debug") {
+        const enabled = value as boolean;
         this.options.setVerboseLogging(enabled);
         this.update({
           settings: { ...previous, debug_logging: enabled },
         });
+      } else if (operation === "updateChannel") {
+        this.update({
+          settings: { ...previous, update_channel: value as UpdateChannel },
+        });
+      } else {
+        this.update({
+          settings: { ...previous, automatic_update_checks: value as boolean },
+        });
       }
 
       try {
-        const saved =
-          operation === "feature"
-            ? await this.options.setFeatureEnabled(enabled)
-            : await this.options.setDebugLogging(enabled);
+        let saved: PluginSettings;
+        if (operation === "feature") {
+          saved = await this.options.setFeatureEnabled(value as boolean);
+        } else if (operation === "debug") {
+          saved = await this.options.setDebugLogging(value as boolean);
+        } else if (operation === "updateChannel") {
+          saved = await this.options.setUpdateChannel(value as UpdateChannel);
+        } else {
+          saved = await this.options.setAutomaticUpdateChecks(value as boolean);
+        }
         if (this.active) this.applySettings(saved);
       } catch (error) {
         if (!this.active) return;
