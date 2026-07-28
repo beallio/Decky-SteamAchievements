@@ -9,11 +9,12 @@ usage() {
   cat <<'EOF'
 Usage: scripts/check_release_preconditions.sh \
   --tag vX.Y.Z --sha COMMIT --archive PATH \
-  [--remote REMOTE] [--main-ref REF]
+  [--remote REMOTE] [--main-ref REF] [--quality-gate PATH]
 
 The current checkout must be COMMIT. REMOTE defaults to origin and REF defaults
 to origin/main. The script reads remote tags, runs all release gates, and changes
-no local or remote ref. It never invokes gh.
+no local or remote ref. PATH defaults to the repository's project quality-gate
+hook. The script never invokes gh.
 EOF
 }
 
@@ -45,6 +46,7 @@ candidate_sha=""
 archive=""
 remote="origin"
 main_ref="origin/main"
+quality_gate="scripts/orchestration-hooks/quality-gates"
 while (($#)); do
   case "$1" in
     --tag)
@@ -70,6 +72,11 @@ while (($#)); do
     --main-ref)
       [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       main_ref="$2"
+      shift 2
+      ;;
+    --quality-gate)
+      [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+      quality_gate="$2"
       shift 2
       ;;
     --help|-h)
@@ -141,7 +148,7 @@ if [[ "$metadata_version" != "$version" ]]; then
   exit 1
 fi
 
-if ! scripts/orchestration/run-quality-gates; then
+if ! "$quality_gate"; then
   echo "release-preconditions: full quality gates failed" >&2
   exit 1
 fi
