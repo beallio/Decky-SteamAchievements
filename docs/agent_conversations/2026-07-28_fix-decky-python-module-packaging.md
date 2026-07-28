@@ -141,9 +141,15 @@ Decky-SteamAchievements/dist/index.js.map
   releases, Automatically check for updates, Status, Check now, Plugin, Decky
   Loader, and SteamOS. Every Updates control and every version row received
   Steam's `gpfocus` marker.
-- Settings were preserved byte-for-byte across installation:
-  SHA-256 `1ebf105306bb4ac2d1dc13cf26a2733cd1e91e3cd2688b7dde51139c45d90135`,
+- The installation itself preserved the original two-key settings file
+  byte-for-byte at SHA-256
+  `1ebf105306bb4ac2d1dc13cf26a2733cd1e91e3cd2688b7dde51139c45d90135`,
   with `feature_enabled: true` and `debug_logging: false`.
+- Later UI validation triggered the intended migrate-on-next-mutation contract at
+  `2026-07-28 08:43:38 -0700`. The final four-key settings file had SHA-256
+  `e1927190e6e9c8158b012f0412d0606b82f34222c615ffe95881988bf5066eb0`
+  and contained `feature_enabled: true`, `debug_logging: false`,
+  `update_channel: stable`, and `automatic_update_checks: true`.
 - The Brotato Gaming Mode DOM contained `ACHIEVEMENTS` and `79/179` after the
   update, with no visible plugin-startup error.
 
@@ -153,5 +159,7 @@ No rollback was required. The fresh backup contains the known-working
 `0.1.0+a3b49d5` plugin and bundle, and the older required recovery point remains
 available. The Downloads path holds the exact validated `0.1.1+3bd0475` ZIP.
 Decky Loader is active, the backend is healthy, settings are intact, the updater
-RPC/UI smoke passed, and Brotato still shows the restored progress bar. The
-temporary `/tmp/decky-cdp.py` helper used for validation was removed.
+RPC/UI smoke passed, and Brotato still shows the restored progress bar. Settings
+were semantically preserved and successfully migrated to the current four-key
+schema during the later UI interaction. The temporary `/tmp/decky-cdp.py` helper
+used for validation was removed.
