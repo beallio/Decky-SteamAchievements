@@ -8,8 +8,8 @@ declare -A targets=([pre-commit]=scripts/check_tdd.sh [post-commit]=scripts/post
 legacy_body() {
   case "$1" in
     pre-commit) printf '%s' $'#!/usr/bin/env bash\n# Playhub Metadata pre-commit gate (installed from AGENTS.md contract).\nset -euo pipefail\nrepo_root="$(git rev-parse --show-toplevel)"\nexec "$repo_root/scripts/check_tdd.sh"' ;;
-    post-commit) printf '%s' $'#!/usr/bin/env bash\n# Decky-Metadata post-commit hook (installed from AGENTS.md contract).\n# Delegates to the tracked scripts/post_commit.sh: build + package + push to Deck.\nrepo_root="$(git rev-parse --show-toplevel)"\nexec "$repo_root/scripts/post_commit.sh"' ;;
-    post-merge) printf '%s' $'#!/usr/bin/env bash\n# Decky-Metadata post-merge hook.\n# git merge (and git pull) fire post-merge, NOT post-commit, so the orchestration\n# flow that lands work on dev via `git merge --no-ff` needs this to trigger the\n# same build + package + push-to-Deck step as post-commit.\nrepo_root="$(git rev-parse --show-toplevel)"\nexec "$repo_root/scripts/post_commit.sh"' ;;
+    post-commit) printf '%s' $'#!/usr/bin/env bash\n# Decky-SteamAchievements post-commit hook (installed from AGENTS.md contract).\n# Delegates to the tracked scripts/post_commit.sh: build + package + push to Deck.\nrepo_root="$(git rev-parse --show-toplevel)"\nexec "$repo_root/scripts/post_commit.sh"' ;;
+    post-merge) printf '%s' $'#!/usr/bin/env bash\n# Decky-SteamAchievements post-merge hook.\n# git merge (and git pull) fire post-merge, NOT post-commit, so the orchestration\n# flow that lands work on dev via `git merge --no-ff` needs this to trigger the\n# same build + package + push-to-Deck step as post-commit.\nrepo_root="$(git rev-parse --show-toplevel)"\nexec "$repo_root/scripts/post_commit.sh"' ;;
   esac
 }
 status=0

@@ -1,0 +1,86 @@
+# Stable releases publish only from permanent vX.Y.Z tags.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+concurrency:
+  group: stable-release-publication
+  cancel-in-progress: false
+
+jobs:
+  publish-stable:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out tagged revision and tags
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch main ancestry without changing tags
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build stable release assets
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          version="${tag#v}"
+          node scripts/package.mjs \
+            --release \
+            --release-version "$version" \
+            --release-tag "$tag" \
+            --channel stable \
+            --emit-release-metadata
+          sha256sum -c "Decky-SteamAchievements-$tag.zip.sha256"
+          python3 scripts/changelog.py extract "$version" > "$RUNNER_TEMP/release-notes.md"
+          python3 scripts/changelog.py title "$version" > "$RUNNER_TEMP/release-title.txt"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce stable prepublication conditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/check_release_preconditions.sh \
+            --tag "${{ steps.package.outputs.tag }}" \
+            --sha "$GITHUB_SHA" \
+            --archive Decky-SteamAchievements.zip \
+            --remote origin \
+            --main-ref origin/main \
+            --quality-gate scripts/orchestration-hooks/quality-gates
+
+      - name: Publish stable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.package.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          title="$(< "$RUNNER_TEMP/release-title.txt")"
+          gh release create "$TAG" \
+            Decky-SteamAchievements.zip \
+            "Decky-SteamAchievements-$TAG.zip.sha256" \
+            "Decky-SteamAchievements-$TAG.manifest.json" \
+            --verify-tag \
+            --title "$title" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
