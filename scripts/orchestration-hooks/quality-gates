@@ -73,6 +73,8 @@ if [[ -f package.json ]]; then
   node scripts/package.mjs --no-hash
   "$python_bin" scripts/validate_plugin_zip.py Decky-SteamAchievements.zip \
     --expected-version "$base_version"
+  "$python_bin" scripts/check_backend_archive_parity.py Decky-SteamAchievements.zip \
+    --project-root "$repo_root"
 fi
 
 # --- release version drift guard --------------------------------------------
