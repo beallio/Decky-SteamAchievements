@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-CANONICAL_PLUGIN_NAME = "Decky-SteamAchievements"
+PLUGIN_DISPLAY_NAME = "Achievements Restored"
 PACKAGE_NAME = "decky-steamachievements"
 
 
@@ -51,10 +51,10 @@ def check_source_metadata(project_root: Path) -> None:
         lockfile, "package-lock.json", "packages", "", "name"
     )
 
-    if plugin_name != CANONICAL_PLUGIN_NAME:
+    if plugin_name != PLUGIN_DISPLAY_NAME:
         raise ValueError(
-            f"plugin.json name {plugin_name!r} does not match canonical "
-            f"{CANONICAL_PLUGIN_NAME!r}"
+            f"plugin.json name {plugin_name!r} does not match display name "
+            f"{PLUGIN_DISPLAY_NAME!r}"
         )
     for label, actual in (
         ("package.json name", package_name),

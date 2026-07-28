@@ -103,7 +103,7 @@ def _check_base(version: str, tags: list[str]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Check and compute Achievements Restored release versions."
+        description="Check and compute Decky-SteamAchievements release versions."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     check_drift = subparsers.add_parser("check-drift", help="Fail when VERSION is behind tags.")

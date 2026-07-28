@@ -10,24 +10,29 @@ Release entries are curated by hand and dated. A release must not be cut against
 
 ## [Unreleased]
 
-### Added
-
-- Canonical plugin identity pinned to `Decky-SteamAchievements` (the repository name) in
-  `plugin.json` and `package.json`, with `Achievements Restored` retained as the user-facing
-  display name in the QAM. The contract is documented in `AGENTS.md`.
-
-### Changed
-
-- On-device install directory is now `~/homebrew/plugins/Decky-SteamAchievements/`, and the
-  packaged release asset is `Decky-SteamAchievements.zip`. Both are derived from `plugin.json`
-  `name` by `scripts/package.mjs`.
-
 ## [0.1.0] - 2026-07-27
 
 Initial development release.
 
-Restores the achievement progress bar Valve removed from the Steam Deck game-details PlayBar by
-supplying the `onSeek` prop its `MiniAchievements` component requires, via a prototype-method
-patch that avoids remounting Steam's content components.
+### Added
 
-No release has been tagged yet; the repository has no tags and no published GitHub release.
+- Restores the achievement progress bar Valve removed from the Steam Deck
+  game-details PlayBar by supplying the `onSeek` prop its `MiniAchievements`
+  component requires, without remounting Steam's content components.
+- Persistent, gamepad-focusable toggles for achievement restoration and debug
+  logging, including reversible cleanup of the currently mounted bar.
+- Independently focusable plugin, Decky Loader, and SteamOS version rows.
+- A SteamOS desktop installer bundle that validates and installs the canonical
+  stable plugin ZIP with backup and rollback handling.
+- CI, a rolling `dev-build` prerelease, fail-closed package validation, and a
+  human-gated stable release workflow.
+
+### Changed
+
+- Canonical plugin identity pinned to `Decky-SteamAchievements` (the repository name) in
+  `package.json` and the distribution archive/install path, while `plugin.json` uses
+  `Achievements Restored` for Decky's plugin list and QAM title.
+  The contract is documented in `AGENTS.md`.
+- On-device install directory is now `~/homebrew/plugins/Decky-SteamAchievements/`, and the
+  packaged release asset is `Decky-SteamAchievements.zip`. `scripts/package.mjs` fixes both to
+  the distribution identity independently of the display name in `plugin.json`.

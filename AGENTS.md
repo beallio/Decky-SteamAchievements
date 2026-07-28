@@ -1,4 +1,4 @@
-# AGENTS.md — Achievements Restored
+# AGENTS.md — Decky-SteamAchievements
 
 Guidance for coding agents working in this repo. Keep it current.
 
@@ -23,9 +23,11 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 
 ## Build / test
 
-- `pnpm install` (or `npm install`) then `pnpm run build` (rollup via `@decky/rollup`).
-- `pnpm run package` builds and zips via `scripts/package.mjs`.
-- `pnpm test` runs vitest.
+- `npm ci` then `npm run build` (rollup via `@decky/rollup`).
+- `npm run package` builds `Decky-SteamAchievements.zip` via `scripts/package.mjs`.
+- `npm test` runs vitest; `uv run --with pytest -- pytest -q` runs backend tests.
+- `scripts/orchestration/run-quality-gates` runs metadata agreement, typecheck,
+  build, frontend tests, Python compilation/tests, and version drift checks.
 - `scripts/check_tdd.sh` enforces a matching test for new `src/*.py` (backend).
 
 ## Decky runtime facts (for the patch)
@@ -36,6 +38,13 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   `R(id)` (the `R.c` cache reads empty via that handle).
 - Achievements store: `R(78057).H.GetAchievements(appid)` → `{nTotal,nAchieved,…}`
   (id is build-specific — resolve by signature, not hardcode).
+- Uninstalled-game achievement data is usually absent from that store. A live
+  2026-07-26 probe found cached totals for only 4 of 58 uninstalled Steam games;
+  keep Valve's `!nTotal` guard and never fabricate progress when data is missing.
+- Preserve Valve's intended install guard:
+  `!overview.installed && nAchieved == 0` hides zero-progress uninstalled games,
+  while uninstalled games with earned progress may render when data is available.
+  The plugin remedies only the later `!onSeek` guard.
 - `afterPatch(MiniAchievements.prototype, "render", …)` works on the current
   build. Supply `onSeek` through a persistent instance `props` getter, then
   schedule `forceUpdate()` out of band so React commits Valve's component.
@@ -66,25 +75,50 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
 - Terse, factual commit messages; do not add Claude/AI trailers.
 - Prefer resilient lookups and graceful failure — a broken patch must never crash
   the Steam UI (wrap in try/catch, log, no-op on failure).
+- Persistent settings live in Decky's plugin settings directory and default to
+  achievement restoration enabled with verbose diagnostics disabled.
+- Disabling restoration must clean injected props from mounted instances, not
+  only remove route/prototype patches.
+- Report the installed plugin version from the packaged manifest; resolve Decky
+  and SteamOS versions from the runtime and `/etc/os-release`.
+- Keep every setting and each version row independently gamepad-focusable.
+- Reset Decky's retained QAM scroll position without calling native DOM
+  `focus()`; let `preferredFocus` and Steam's gamepad navigation own focus so
+  users can return to the description with the D-pad.
+- `installer/Decky-SteamAchievements Installer.zip` is built from the adjacent
+  specialized installer sources with `bash installer/build_bundle.sh`; keep its
+  GitHub repository URL and exact `Decky-SteamAchievements.zip` distribution
+  asset aligned with the release workflow. The installer bundle name is a
+  display artifact and deliberately differs from the canonical plugin ZIP.
 
-## Plugin identity — canonical vs display
+## Plugin identity — distribution vs Decky display
 
 Two names, deliberately different. Do not "unify" them.
 
-- **Canonical: `Decky-SteamAchievements`** — matches the repository name. Lives in `plugin.json`
-  `name`, and lowercase-kebab in `package.json` (`decky-steamachievements`). This string is
-  load-bearing: `scripts/package.mjs` derives the packaged folder name and zip filename from
-  `plugin.json` `name`, Decky Loader keys the installed plugin directory
-  (`~/homebrew/plugins/Decky-SteamAchievements/`) off it, and any self-updater must pass it
-  verbatim to `install_plugin` to replace in place rather than installing a second copy.
-- **Display: `Achievements Restored`** — what the user sees. Lives in `src/index.tsx` as
-  `PLUGIN_NAME`, used for the `definePlugin` `name` and the QAM `titleView`. Also the product
-  name in `README.md`/`AGENTS.md` titles and the installer's user-facing artifacts.
+- **Distribution: `Decky-SteamAchievements`** — matches the repository, ZIP filename, ZIP root,
+  installed directory, settings/runtime/log directory, installer artifacts, backend log namespace,
+  and release asset. Its npm spelling remains `decky-steamachievements`. These paths are
+  load-bearing for in-place updates and must stay stable.
+- **Decky display: `Achievements Restored`** — lives in `plugin.json` `name` and the frontend
+  registration/title constants. Decky Loader overwrites `definePlugin().name` with the manifest
+  name and renders that value in its plugin list; `titleView` uses the same display text for the
+  opened QAM panel.
 
-Changing the canonical name changes the on-device install directory and the release asset
-filename, and breaks in-place updates for anyone already running the plugin. Treat it as a
-breaking change, not a rename.
+Decky derives `DECKY_PLUGIN_SETTINGS_DIR`, runtime data, and logs from the archive/install folder,
+not `plugin.json.name`. `scripts/package.mjs` therefore fixes the archive root and asset name to
+`Decky-SteamAchievements` instead of deriving them from the display manifest. The Desktop
+installer recognizes the former canonical manifest name as a migration alias and replaces that
+installation in place.
 
-Note the sibling `Decky-Metadata` has these two out of sync — its `AGENTS.md` says the canonical
-name has no space while its shipped `plugin.json` has one. That is a known open issue there; do
-not copy its current state as a pattern.
+The installed `Storage Cleaner` plugin is the reference for this supported split: its folder is
+`decky-storage-cleaner` while its manifest/list name is `Storage Cleaner`.
+
+## Release channels
+
+- Pushes to `dev` run CI and refresh the replaceable `dev-build` prerelease with
+  exactly one `Decky-SteamAchievements.zip` asset.
+- Permanent `vX.Y.Z` tags trigger stable publication of the ZIP, checksum, and
+  release manifest only after the fail-closed prepublication checks pass.
+- `scripts/release.sh X.Y.Z` prepares a stable release locally and never pushes.
+  Stable `dev` → `main` promotion and tag publication remain human actions; follow
+  `docs/runbooks/release.md`.

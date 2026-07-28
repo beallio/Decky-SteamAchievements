@@ -10,7 +10,7 @@ from typing import Any
 
 
 SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
-CANONICAL_PLUGIN_NAME = "Decky-SteamAchievements"
+PLUGIN_DISPLAY_NAME = "Achievements Restored"
 PACKAGE_NAME = "decky-steamachievements"
 
 
@@ -38,8 +38,8 @@ def _require_identity(
     package_data: dict[str, Any],
     lock_data: dict[str, Any],
 ) -> dict[str, Any]:
-    if plugin_data.get("name") != CANONICAL_PLUGIN_NAME:
-        raise ValueError(f"plugin.json name must remain {CANONICAL_PLUGIN_NAME!r}")
+    if plugin_data.get("name") != PLUGIN_DISPLAY_NAME:
+        raise ValueError(f"plugin.json name must remain {PLUGIN_DISPLAY_NAME!r}")
     if package_data.get("name") != PACKAGE_NAME:
         raise ValueError(f"package.json name must remain {PACKAGE_NAME!r}")
     if lock_data.get("name") != PACKAGE_NAME:

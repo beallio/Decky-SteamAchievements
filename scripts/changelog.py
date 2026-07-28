@@ -345,7 +345,7 @@ def _add_section_arguments(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Validate and extract curated Achievements Restored release notes."
+        description="Validate and extract curated Decky-SteamAchievements release notes."
     )
     parser.add_argument(
         "--file",
@@ -405,4 +405,3 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Decky-Metadata post-commit: build + package the plugin and push it to the
+# Decky-SteamAchievements post-commit: build + package the plugin and push it to the
 # Steam Deck for the Developer-Mode sideload loop. Mirrors the approach in
 # beallio/SDH-Ludusavi. Installed as .git/hooks/post-commit (see AGENTS.md).
 #
@@ -24,7 +24,19 @@ if [[ "${DECKY_POST_COMMIT_ALL:-0}" != "1" && "$branch" != "dev" && "$branch" !=
   exit 0
 fi
 
-if ! DECKY_HOOK_AUTHORIZED=1 scripts/deck/package_push.sh --hook; then
-  echo "post-commit: WARNING package/delivery failed; commit is unaffected." >&2
+host="${DECKY_DECK_HOST:-steamdeck}"
+destination="${DECKY_DECK_DEST:-/home/deck/Downloads/}"
+if ! npm run package; then
+  echo "post-commit: WARNING package build failed; commit is unaffected." >&2
+  exit 0
 fi
+if ! python3 scripts/validate_plugin_zip.py Decky-SteamAchievements.zip; then
+  echo "post-commit: WARNING package validation failed; commit is unaffected." >&2
+  exit 0
+fi
+if ! scp -- Decky-SteamAchievements.zip "${host}:${destination%/}/Decky-SteamAchievements.zip"; then
+  echo "post-commit: WARNING package/delivery failed; commit is unaffected." >&2
+  exit 0
+fi
+echo "post-commit: delivered Decky-SteamAchievements.zip to ${host}:${destination%/}/"
 exit 0

@@ -405,6 +405,7 @@ describe("patchMiniAchievementsRender", () => {
 
     const patch = patchMiniAchievementsRender(MiniClass, {
       afterPatch: fakeAfterPatch,
+      onRestore: vi.fn(),
     });
 
     expect(fakeAfterPatch).toHaveBeenCalledWith(
@@ -478,7 +479,7 @@ describe("restoreInstance", () => {
   it("installs persistent props and schedules only one refresh per instance", () => {
     const controller = { SeekToSection: vi.fn() };
     const instance: any = {
-      props: { details: true },
+      props: { details: true, overview: { installed: false } },
       forceUpdate: vi.fn(),
       _reactInternals: { return: { stateNode: controller } },
     };
@@ -495,6 +496,7 @@ describe("restoreInstance", () => {
     expect(instance.props).toMatchObject({
       details: true,
       onSeek: expect.any(Function),
+      overview: { installed: false },
     });
 
     instance.props.onSeek("achievements");
@@ -518,6 +520,80 @@ describe("restoreInstance", () => {
     expect(() => instance.props.onSeek("achievements")).not.toThrow();
     expect(() => restoreInstance(undefined)).not.toThrow();
     expect(() => vi.runAllTimers()).not.toThrow();
+  });
+
+  it("restores the latest raw props and can be enabled again after cleanup", () => {
+    const instance: any = { props: { original: true }, forceUpdate: vi.fn() };
+    const cleanup = restoreInstance(instance);
+    instance.props = { latest: true, onSeek: undefined };
+
+    expect(instance.props.onSeek).toEqual(expect.any(Function));
+    cleanup?.();
+    cleanup?.();
+    expect(instance.props).toEqual({ latest: true, onSeek: undefined });
+    expect(Object.prototype.hasOwnProperty.call(instance, "__achRestored")).toBe(false);
+    vi.runAllTimers();
+    expect(instance.forceUpdate).toHaveBeenCalledTimes(2);
+
+    expect(restoreInstance(instance)).toEqual(expect.any(Function));
+    expect(instance.props.onSeek).toEqual(expect.any(Function));
+  });
+
+  it("restores an own accessor and commits the latest raw props through its setter", () => {
+    let backing: any = { original: true };
+    const get = vi.fn(() => backing);
+    const set = vi.fn((value) => {
+      backing = value;
+    });
+    const instance: any = { forceUpdate: vi.fn() };
+    Object.defineProperty(instance, "props", {
+      configurable: true,
+      enumerable: false,
+      get,
+      set,
+    });
+
+    const cleanup = restoreInstance(instance);
+    instance.props = { latest: true, onSeek: undefined };
+    cleanup?.();
+
+    const descriptor = Object.getOwnPropertyDescriptor(instance, "props");
+    expect(descriptor).toMatchObject({ configurable: true, enumerable: false, get, set });
+    expect(set).toHaveBeenCalledWith({ latest: true, onSeek: undefined });
+    expect(instance.props).toEqual({ latest: true, onSeek: undefined });
+  });
+
+  it("removes the wrapper and uses an inherited setter during cleanup", () => {
+    let backing: any = { inherited: true };
+    const inheritedSet = vi.fn((value) => {
+      backing = value;
+    });
+    const prototype = Object.defineProperty({}, "props", {
+      configurable: true,
+      get: () => backing,
+      set: inheritedSet,
+    });
+    const instance: any = Object.assign(Object.create(prototype), {
+      forceUpdate: vi.fn(),
+    });
+
+    const cleanup = restoreInstance(instance);
+    instance.props = { latest: true, onSeek: null };
+    cleanup?.();
+
+    expect(Object.prototype.hasOwnProperty.call(instance, "props")).toBe(false);
+    expect(inheritedSet).toHaveBeenCalledWith({ latest: true, onSeek: null });
+    expect(instance.props).toEqual({ latest: true, onSeek: null });
+  });
+
+  it("deletes the wrapper when the instance originally had no props descriptor", () => {
+    const instance: any = { forceUpdate: vi.fn() };
+
+    const cleanup = restoreInstance(instance);
+    instance.props = { latest: true };
+    cleanup?.();
+
+    expect(Object.prototype.hasOwnProperty.call(instance, "props")).toBe(false);
   });
 });
 
@@ -592,6 +668,11 @@ describe("installAchievementBarPatch", () => {
     expect(mocks.removePatch).toHaveBeenCalledWith(APP_ROUTE, callback);
     expect(routeRenderPatch.unpatch).toHaveBeenCalledOnce();
     expect(prototypePatch.unpatch).toHaveBeenCalledOnce();
+    expect(firstInstance.props.onSeek).toBeUndefined();
+    expect(secondInstance.props.onSeek).toBeUndefined();
+    vi.runAllTimers();
+    expect(firstInstance.forceUpdate).toHaveBeenCalledTimes(2);
+    expect(secondInstance.forceUpdate).toHaveBeenCalledTimes(2);
   });
 
   it("retries from a real route render after the initial capture burst expires", () => {

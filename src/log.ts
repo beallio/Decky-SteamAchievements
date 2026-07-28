@@ -5,10 +5,13 @@ export function setVerboseLogging(on: boolean): void {
   verbose = on;
 }
 
-const prefix = (scope: string) => `[AchievementsRestored:${scope}]`;
+const prefix = (scope: string) => `[Decky-SteamAchievements:${scope}]`;
 
 export function debug(scope: string, ...args: unknown[]): void {
   if (verbose) console.debug(prefix(scope), ...args);
+}
+export function trace(scope: string, ...args: unknown[]): void {
+  if (verbose) console.trace(prefix(scope), ...args);
 }
 export function info(scope: string, ...args: unknown[]): void {
   console.info(prefix(scope), ...args);

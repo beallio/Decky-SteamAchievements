@@ -1,0 +1,101 @@
+# Development
+
+## Technical background
+
+The frontend restores Valve's own `MiniAchievements` component by supplying the
+`onSeek` prop its render guard requires. Do not reimplement the achievement bar
+unless a placement Valve's component cannot reach is explicitly required.
+
+The plugin also has a persistent backend settings contract, a reversible
+frontend feature lifecycle, and runtime version discovery. Settings default to
+achievement restoration enabled and debug logging disabled. The QAM settings
+and all three version rows must remain independently gamepad-focusable.
+
+The live-verified root cause and runtime constraints are documented in
+[`HANDOFF.md`](HANDOFF.md).
+
+## Environment
+
+Allow the repository's direnv configuration before development:
+
+```bash
+direnv allow
+```
+
+This redirects caches and scratch data to `/tmp/Decky-SteamAchievements`.
+
+Install the exact JavaScript dependency set from `package-lock.json`:
+
+```bash
+npm ci
+```
+
+Use `npm install --package-lock-only` only when intentionally updating package
+metadata or dependency resolution.
+
+## Build and test
+
+```bash
+npm test
+npx tsc --noEmit
+npm run build
+uv run --with pytest -- pytest -q
+scripts/orchestration/run-quality-gates
+```
+
+The frontend build is written to `dist/index.js`. The orchestration gate also
+checks source-metadata identity/version agreement and compiles the Python entry
+point.
+
+## Package the plugin
+
+```bash
+npm run package
+```
+
+This builds the frontend and creates `Decky-SteamAchievements.zip` in the
+repository root. Local builds include the current short Git commit as version
+metadata.
+
+Install the package with Decky's developer ZIP flow, or deploy `dist/` and the
+backend files to `~/homebrew/plugins/Decky-SteamAchievements/` for local testing.
+To build, validate, and copy the canonical ZIP to the Deck's Downloads directory
+in one step, run `scripts/decky package-push`.
+
+## Build the Desktop installer bundle
+
+The specialized installer sources are under `installer/`. Rebuild the tracked
+installer archive after changing any of those files:
+
+```bash
+bash installer/build_bundle.sh
+```
+
+The command creates `installer/Decky-SteamAchievements Installer.zip`. Keep the
+configured GitHub repository URL and exact `Decky-SteamAchievements.zip`
+distribution asset aligned with the release workflow. The installer bundle, plugin ZIP, archive
+root, and installed directory use `Decky-SteamAchievements`; Decky's plugin list and opened QAM
+panel use the manifest display name `Achievements Restored`.
+
+## Release channels
+
+- Every push to `dev` refreshes the replaceable `dev-build` prerelease with one
+  `Decky-SteamAchievements.zip` asset.
+- Stable releases use permanent `vX.Y.Z` tags and add the checksum and release
+  manifest alongside the canonical ZIP.
+- Stable promotion remains a human gate. Follow
+  [`docs/runbooks/release.md`](docs/runbooks/release.md); do not create or push a
+  stable tag as an implementation side effect.
+
+## Repository layout
+
+- `src/index.tsx` — plugin entry and QAM content.
+- `src/achievementBar.tsx` — achievement restoration and cleanup lifecycle.
+- `src/components/` — focusable QAM presentation components.
+- `main.py` — settings, runtime versions, and backend lifecycle.
+- `installer/` — specialized Desktop installer sources and bundle.
+- `.github/workflows/` — CI, rolling development release, and stable release jobs.
+- `scripts/` — build/package/release helpers and the orchestration symlink.
+- `docs/` — plans, specifications, reviews, and runbooks.
+- `research/` — ignored reverse-engineering scratch; only curated reports and
+  diffs are intended to persist.

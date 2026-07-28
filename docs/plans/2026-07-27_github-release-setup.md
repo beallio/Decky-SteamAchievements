@@ -59,8 +59,8 @@ bodies; do not assume a donor file's `on:` block is what this repo wants.
 2. **npm, not pnpm.** This repo has `package-lock.json`; Decky-Metadata's workflows may assume
    `pnpm`. Use `npm ci`.
 3. **The lockfile still carries the pre-rename identity.** `package.json` was renamed to
-   `decky-steamachievements`, but `package-lock.json` still records `achievements-restored` in
-   both its root `name` and `packages[""].name` (verified 2026-07-27). `npm ci` currently
+   `decky-steamachievements`, but `package-lock.json` still records the previous noncanonical
+   name in both its root `name` and `packages[""].name` (verified 2026-07-27). `npm ci` currently
    succeeds despite that mismatch, but the stale lockfile identity should still be corrected so
    all committed package metadata agrees. Task 0 covers it.
 
@@ -207,7 +207,7 @@ Work in order. Read each donor file before porting it; adapt rather than copy bl
 
 ### Task 0 — Realign the lockfile identity and dependency bootstrap
 
-`package-lock.json` still names the plugin `achievements-restored` in both its root `name` and
+`package-lock.json` still uses the previous noncanonical name in both its root `name` and
 `packages[""].name`, left behind by the earlier identity rename. Regenerate or edit it so both
 read `decky-steamachievements`, matching `package.json`.
 
@@ -296,7 +296,8 @@ validator must check `package.json`'s `name` equals `decky-steamachievements`, n
 expectation to the malformed-archive verification cases so a ZIP carrying the wrong package name
 is proven to be rejected.
 
-Adapt its expectations to this repo: pass `--expected-name Decky-SteamAchievements` so the archive
+Adapt its expectations to this repo: pass `--expected-root Decky-SteamAchievements` and
+`--expected-name "Achievements Restored"` so the archive
 root is checked against the canonical identity. Replace the donor's required-file set with
 `LICENSE`, `main.py`, `package.json`, `plugin.json`, and `dist/index.js`; keep `NOTICE` and
 `dist/index.js.map` optional because `scripts/package.mjs` emits them only when present. Replace
@@ -629,7 +630,7 @@ If either `ls-remote` fails, stop — an unverifiable baseline makes checks 7 an
 4. **The package validator rejects bad archives.** Build with
    `node scripts/package.mjs --release --release-version 0.1.0 --emit-release-metadata`; confirm
    the three emitted assets exist and
-   `python3 scripts/validate_plugin_zip.py Decky-SteamAchievements.zip --expected-name Decky-SteamAchievements --expected-version 0.1.0`
+   `python3 scripts/validate_plugin_zip.py Decky-SteamAchievements.zip --expected-root Decky-SteamAchievements --expected-name "Achievements Restored" --expected-version 0.1.0`
    passes. Then build deliberately broken copies — wrong archive root, wrong `plugin.json` name,
    wrong `package.json` name, mismatched version — and invoke the validator with the same
    `--expected-name` and `--expected-version` flags, confirming a non-zero exit for **each**. A

@@ -10,6 +10,8 @@ from typing import Any
 
 
 PACKAGE_NAME = "decky-steamachievements"
+DEFAULT_ARCHIVE_ROOT = "Decky-SteamAchievements"
+DEFAULT_PLUGIN_NAME = "Achievements Restored"
 REQUIRED_FILES = (
     "LICENSE",
     "main.py",
@@ -57,13 +59,14 @@ def _read_object(archive: zipfile.ZipFile, path: str) -> dict[str, Any]:
 def validate_archive(
     zip_path: Path,
     *,
+    expected_root: str,
     expected_name: str,
     expected_version: str | None,
 ) -> None:
     if not zip_path.is_file():
         raise ValidationError(f"ZIP file does not exist: {zip_path}")
 
-    prefix = f"{expected_name}/"
+    prefix = f"{expected_root}/"
     try:
         with zipfile.ZipFile(zip_path, "r") as archive:
             names = archive.namelist()
@@ -149,18 +152,24 @@ def validate_archive(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate an Achievements Restored plugin ZIP.")
+    parser = argparse.ArgumentParser(description="Validate a Decky-SteamAchievements plugin ZIP.")
     parser.add_argument("zip_path", type=Path, help="Path to the ZIP file to validate.")
     parser.add_argument("--expected-version", help="Expected version of the plugin.")
     parser.add_argument(
+        "--expected-root",
+        default=DEFAULT_ARCHIVE_ROOT,
+        help="Expected canonical archive root / installed directory.",
+    )
+    parser.add_argument(
         "--expected-name",
-        default="Decky-SteamAchievements",
-        help="Expected canonical plugin name and archive root.",
+        default=DEFAULT_PLUGIN_NAME,
+        help="Expected user-facing plugin.json name.",
     )
     args = parser.parse_args()
     try:
         validate_archive(
             args.zip_path,
+            expected_root=args.expected_root,
             expected_name=args.expected_name,
             expected_version=args.expected_version,
         )
