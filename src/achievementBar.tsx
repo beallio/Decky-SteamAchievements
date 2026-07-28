@@ -295,15 +295,13 @@ export function resolveSeekController(instance: any): any | undefined {
 }
 
 /** Supply durable props to one mounted MiniAchievements instance and refresh it. */
-export function restoreInstance(instance: any): void {
+export function restoreInstance(instance: any): (() => void) | undefined {
   try {
-    if (
-      !instance ||
-      Object.prototype.hasOwnProperty.call(instance, INSTANCE_PATCH_FLAG)
-    ) {
-      return;
-    }
+    if (!instance) return undefined;
+    const existing = instance[INSTANCE_PATCH_FLAG];
+    if (typeof existing === "function") return existing;
 
+    const originalDescriptor = Object.getOwnPropertyDescriptor(instance, "props");
     const onSeek: SeekHandler = (section) => {
       try {
         const controller = resolveSeekController(instance);
@@ -315,18 +313,60 @@ export function restoreInstance(instance: any): void {
         // Native currently has no achievements target; activation no-ops.
       }
     };
-    let store = withOnSeek(instance.props, onSeek);
+    let rawProps = instance.props;
+    let store = withOnSeek(rawProps, onSeek);
 
     Object.defineProperty(instance, "props", {
       configurable: true,
       get: () => store,
       set: (value) => {
-        store = withOnSeek(value, onSeek);
+        rawProps = value;
+        store = withOnSeek(rawProps, onSeek);
       },
     });
+    let cleaned = false;
+    const cleanup = (): void => {
+      if (cleaned) return;
+      cleaned = true;
+      try {
+        if (originalDescriptor && "value" in originalDescriptor) {
+          Object.defineProperty(instance, "props", {
+            ...originalDescriptor,
+            value: rawProps,
+          });
+        } else if (originalDescriptor) {
+          Object.defineProperty(instance, "props", originalDescriptor);
+          originalDescriptor.set?.call(instance, rawProps);
+        } else {
+          delete instance.props;
+          let prototype = Object.getPrototypeOf(instance);
+          while (prototype) {
+            const inheritedDescriptor = Object.getOwnPropertyDescriptor(
+              prototype,
+              "props",
+            );
+            if (inheritedDescriptor) {
+              inheritedDescriptor.set?.call(instance, rawProps);
+              break;
+            }
+            prototype = Object.getPrototypeOf(prototype);
+          }
+        }
+        delete instance[INSTANCE_PATCH_FLAG];
+        setTimeout(() => {
+          try {
+            if (typeof instance.forceUpdate === "function") instance.forceUpdate();
+          } catch {
+            // Detached instances are harmless during cleanup.
+          }
+        }, 0);
+      } catch {
+        // Cleanup is best-effort and must not escape into Steam.
+      }
+    };
     Object.defineProperty(instance, INSTANCE_PATCH_FLAG, {
       configurable: true,
-      value: true,
+      value: cleanup,
     });
 
     setTimeout(() => {
@@ -338,8 +378,10 @@ export function restoreInstance(instance: any): void {
         // A detached instance is harmless; never throw into Steam.
       }
     }, 0);
+    return cleanup;
   } catch {
     // A malformed or detached instance must never break the Steam UI.
+    return undefined;
   }
 }
 
@@ -349,14 +391,18 @@ export function restoreInstance(instance: any): void {
  */
 export function patchMiniAchievementsRender(
   MiniClass: any,
-  dependencies: { afterPatch: AfterPatch },
+  dependencies: {
+    afterPatch: AfterPatch;
+    onRestore?: (instance: any, cleanup: () => void) => void;
+  },
 ): PrototypePatch | undefined {
   try {
     return dependencies.afterPatch(
       MiniClass.prototype,
       "render",
       function (this: any, _args: any[], result: any): any {
-        restoreInstance(this);
+        const cleanup = restoreInstance(this);
+        if (cleanup) dependencies.onRestore?.(this, cleanup);
         return result;
       },
     );
@@ -389,6 +435,14 @@ export function installAchievementBarPatch(): () => void {
   let captureAttemptIndex = 0;
   let captureTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+  const restoredInstances = new Map<any, () => void>();
+
+  const registerRestoredInstance = (
+    instance: any,
+    cleanup: (() => void) | undefined,
+  ): void => {
+    if (cleanup) restoredInstances.set(instance, cleanup);
+  };
 
   const finishCaptureBurst = (): void => {
     captureTimer = undefined;
@@ -444,6 +498,7 @@ export function installAchievementBarPatch(): () => void {
 
       const patch = patchMiniAchievementsRender(MiniClass, {
         afterPatch: afterPatch as AfterPatch,
+        onRestore: registerRestoredInstance,
       });
       if (!patch) {
         finishCaptureBurst();
@@ -452,7 +507,7 @@ export function installAchievementBarPatch(): () => void {
 
       prototypePatch = patch;
       for (const instance of instances) {
-        restoreInstance(instance);
+        registerRestoredInstance(instance, restoreInstance(instance));
       }
       finishCaptureBurst();
       safeInfo(
@@ -561,6 +616,15 @@ export function installAchievementBarPatch(): () => void {
         safeWarn("prototype unpatch failed", error);
       }
     }
+
+    for (const cleanup of restoredInstances.values()) {
+      try {
+        cleanup();
+      } catch (error) {
+        safeWarn("instance restore cleanup failed", error);
+      }
+    }
+    restoredInstances.clear();
 
     safeInfo("achievement bar patch removed");
   };

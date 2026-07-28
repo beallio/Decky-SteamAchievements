@@ -3,7 +3,7 @@
 # root. Exit non-zero to fail the gate. The engine separately enforces that
 # review notes are not deleted, so that is not repeated here.
 #
-# Achievements Restored is a Decky Loader plugin:
+# Decky-SteamAchievements is a Decky Loader plugin:
 #   - TypeScript/React frontend in src/*.tsx, built with rollup -> dist/
 #   - a minimal Python backend: main.py (plus backend/*.py if present)
 #
@@ -25,14 +25,16 @@ export PYTHONPYCACHEPREFIX="$TMPDIR/__pycache__"
 export UV_CACHE_DIR="$TMPDIR/.uv"
 mkdir -p "$TMPDIR" "$XDG_CACHE_HOME" "$npm_config_cache" "$PYTHONPYCACHEPREFIX" "$UV_CACHE_DIR"
 
+# --- source metadata agreement ---------------------------------------------
+python_bin="$(command -v python3 || command -v python)"
+"$python_bin" scripts/check_source_metadata.py
+"$python_bin" scripts/check_identity.py
+"$python_bin" scripts/check_installer_bundle.py
+
 # --- frontend: type-check + build -------------------------------------------
 if [[ -f package.json ]]; then
   if [[ ! -d node_modules ]]; then
-    if command -v pnpm >/dev/null 2>&1; then
-      pnpm install --frozen-lockfile
-    else
-      npm ci
-    fi
+    npm ci
   fi
 
   # Type-check without emitting, then run the real rollup build.
@@ -46,7 +48,6 @@ fi
 
 # --- backend: Python syntax check -------------------------------------------
 if [[ -f main.py ]]; then
-  python_bin="$(command -v python3 || command -v python)"
   "$python_bin" -m py_compile main.py
   if [[ -d backend ]]; then
     # -r/--no-run-if-empty: an empty backend/ must be a no-op, not a py_compile
@@ -56,13 +57,17 @@ if [[ -f main.py ]]; then
 fi
 
 # --- backend: Python tests ---------------------------------------------------
-if [[ -d tests ]]; then
+# A tests/ directory can exist without holding any Python tests. Here it survives only as
+# leftover __pycache__ from a deleted test file; the real suite is vitest under
+# src/*.test.tsx. pytest exits 5 ("no tests collected") when it finds none, which fails
+# the gate under `set -e` on a perfectly healthy tree. Only run it when a Python test
+# file actually exists.
+if [[ -d tests ]] && find tests \( -name 'test_*.py' -o -name '*_test.py' \) -print -quit | grep -q .; then
   uv run --with pytest -- pytest -q
 fi
 
 # --- release version drift guard --------------------------------------------
 if [[ -f package.json && -f scripts/version_guard.py ]]; then
-  python_bin="$(command -v python3 || command -v python)"
   base_version="$("$python_bin" -c 'import json; print(json.load(open("package.json", encoding="utf-8"))["version"])')"
   "$python_bin" scripts/version_guard.py check-drift "$base_version"
 fi

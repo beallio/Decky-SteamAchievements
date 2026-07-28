@@ -1,4 +1,5 @@
 node_modules/
+pnpm-lock.yaml
 .env
 .DS_Store
 *.log
@@ -9,9 +10,14 @@ dist/
 build/
 build-package/
 *.zip
+!installer/Decky-SteamAchievements Installer.zip
 
 # research scratch (large extracted Steam bundles; curated reports live in research/reports)
 research/
 
 # orchestration engine: machine/trial-only config override
 orchestration.conf.local
+
+# release metadata emitted by scripts/package.mjs --emit-release-metadata
+*.manifest.json
+*.zip.sha256

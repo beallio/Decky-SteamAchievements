@@ -7,45 +7,12 @@ import hashlib
 import json
 import os
 import shutil
-import stat
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-
-LEGACY_HOOK_BODIES = {
-    "pre-commit": (
-        "#!/usr/bin/env bash\n"
-        "# Playhub Metadata pre-commit gate (installed from AGENTS.md contract).\n"
-        "set -euo pipefail\n"
-        'repo_root="$(git rev-parse --show-toplevel)"\n'
-        'exec "$repo_root/scripts/check_tdd.sh"'
-    ),
-    "post-commit": (
-        "#!/usr/bin/env bash\n"
-        "# Decky-Metadata post-commit hook (installed from AGENTS.md contract).\n"
-        "# Delegates to the tracked scripts/post_commit.sh: build + package + push to Deck.\n"
-        'repo_root="$(git rev-parse --show-toplevel)"\n'
-        'exec "$repo_root/scripts/post_commit.sh"'
-    ),
-    "post-merge": (
-        "#!/usr/bin/env bash\n"
-        "# Decky-Metadata post-merge hook.\n"
-        "# git merge (and git pull) fire post-merge, NOT post-commit, so the orchestration\n"
-        "# flow that lands work on dev via `git merge --no-ff` needs this to trigger the\n"
-        "# same build + package + push-to-Deck step as post-commit.\n"
-        'repo_root="$(git rev-parse --show-toplevel)"\n'
-        'exec "$repo_root/scripts/post_commit.sh"'
-    ),
-}
-
-
-def hook_body_supported(name: str, delegate: str, body: str) -> bool:
-    canonical = f'#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/{delegate}" "$@"'
-    return body.rstrip("\n") in {canonical, LEGACY_HOOK_BODIES[name]}
-
 
 def run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, cwd=cwd, text=True, capture_output=True, check=False)
@@ -82,7 +49,7 @@ def archive_metadata(path: Path) -> dict[str, object]:
     result["sha256"] = sha256(path)
     try:
         with zipfile.ZipFile(path) as archive:
-            plugin = json.loads(archive.read("Decky-Metadata/plugin.json"))
+            plugin = json.loads(archive.read("Decky-SteamAchievements/plugin.json"))
             result["version"] = plugin.get("version")
     except (OSError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as error:
         result["error"] = str(error)
@@ -120,33 +87,36 @@ def local_checks(root: Path) -> list[dict[str, object]]:
         checks.append(check("version-agreement", "PASS" if same else "FAIL", "Manifest versions agree" if same else "Manifest versions differ", package=package_version, plugin=plugin_version))
     except (OSError, KeyError, json.JSONDecodeError) as error:
         checks.append(check("version-agreement", "FAIL", "Could not read manifest versions", error=str(error)))
-    expected = {
-        "pre-commit": "scripts/check_tdd.sh",
-        "post-commit": "scripts/post_commit.sh",
-        "post-merge": "scripts/post_commit.sh",
-    }
-    git_dir_result = run("git", "rev-parse", "--git-dir", cwd=root)
-    git_dir = Path(git_dir_result.stdout.strip())
-    if not git_dir.is_absolute():
-        git_dir = root / git_dir
-    drift: dict[str, str] = {}
-    for name, delegate in expected.items():
-        hook = git_dir / "hooks" / name
-        body = hook.read_text(errors="replace") if hook.is_file() else ""
-        if not hook_body_supported(name, delegate, body) or not os.access(hook, os.X_OK):
-            drift[name] = "missing, non-executable, or wrong delegate"
-    checks.append(check("git-hooks", "FAIL" if drift else "PASS", "Git hooks checked", drift=drift, delegates=expected))
-    protocol = (root / ".protocol").read_text(errors="replace") if (root / ".protocol").exists() else ""
-    wrapper = (root / "run.sh").read_text(errors="replace") if (root / "run.sh").exists() else ""
-    cache_ok = "CACHE_ROOT=/tmp/Decky-Metadata" in protocol and "PYTHONPYCACHEPREFIX" in wrapper
+    envrc = (root / ".envrc").read_text(errors="replace") if (root / ".envrc").exists() else ""
+    cache_ok = all(
+        value in envrc
+        for value in (
+            "TMPDIR=/tmp/Decky-SteamAchievements",
+            "XDG_CACHE_HOME=/tmp/Decky-SteamAchievements/.cache",
+            "npm_config_cache=/tmp/Decky-SteamAchievements/.npm",
+            "PYTHONPYCACHEPREFIX=/tmp/Decky-SteamAchievements/__pycache__",
+        )
+    )
     pycache = sorted(str(path.relative_to(root)) for path in root.rglob("__pycache__") if ".git" not in path.parts)
     checks.append(check("cache-policy", "WARN" if pycache else "PASS" if cache_ok else "FAIL", "Cache policy checked", configured=cache_ok, repository_pycache=pycache))
-    checks.append(check("node-modules-location", "WARN" if (root / "node_modules").exists() else "PASS", "Repository-local node_modules is intentionally retained"))
-    archive = archive_metadata(root / "Decky-Metadata.zip")
+    checks.append(
+        check(
+            "node-modules-location",
+            "PASS",
+            "Repository-local node_modules is allowed",
+            present=(root / "node_modules").exists(),
+        )
+    )
+    archive = archive_metadata(root / "Decky-SteamAchievements.zip")
     head = run("git", "rev-parse", "--short", "HEAD", cwd=root).stdout.strip()
     current = bool(archive.get("version", "").endswith(f"+{head}"))
     checks.append(check("local-package", "PASS" if current else "WARN", "Local package represents HEAD" if current else "Local package is absent or stale", head=head, **archive))
-    executables = ["scripts/deck/cdp.py", "scripts/deck/tunnel.sh", "scripts/deck/deploy.sh", "scripts/orchestration-hooks/quality-gates", "scripts/orchestration-hooks/finalize-release"]
+    executables = [
+        "scripts/decky",
+        "scripts/post_commit.sh",
+        "scripts/orchestration-hooks/quality-gates",
+        "scripts/orchestration-hooks/finalize-release",
+    ]
     bad = [name for name in executables if not (root / name).is_file() or not os.access(root / name, os.X_OK)]
     checks.append(check("project-tools", "FAIL" if bad else "PASS", "Tracked project tools checked", invalid=bad))
     return checks
@@ -157,7 +127,7 @@ def deck_checks(root: Path) -> list[dict[str, object]]:
     probe = run("ssh", "-q", "-o", "BatchMode=yes", "-o", "ConnectTimeout=2", host, "exit")
     if probe.returncode:
         return [check("deck-reachability", "WARN", "Optional Deck is offline", host=host)]
-    script = """python3 - <<'PY'\nimport hashlib,json,os\npaths={'manifest':'/home/deck/homebrew/plugins/Decky-Metadata/plugin.json','bundle':'/home/deck/homebrew/plugins/Decky-Metadata/dist/index.js','download':'/home/deck/Downloads/Decky-Metadata.zip'}\nout={}\nfor key,path in paths.items():\n out[key]={'exists':os.path.isfile(path)}\n if os.path.isfile(path):\n  out[key]['sha256']=hashlib.sha256(open(path,'rb').read()).hexdigest()\n  out[key]['size']=os.path.getsize(path)\n if key=='manifest' and os.path.isfile(path): out[key]['version']=json.load(open(path)).get('version')\nout['logs']=os.path.isdir('/home/deck/homebrew/logs/Decky-Metadata')\nout['debugger']=os.path.isfile('/home/deck/.steam/steam/.cef-enable-remote-debugging')\nprint(json.dumps(out,sort_keys=True))\nPY"""
+    script = """python3 - <<'PY'\nimport hashlib,json,os\npaths={'manifest':'/home/deck/homebrew/plugins/Decky-SteamAchievements/plugin.json','bundle':'/home/deck/homebrew/plugins/Decky-SteamAchievements/dist/index.js','download':'/home/deck/Downloads/Decky-SteamAchievements.zip'}\nout={}\nfor key,path in paths.items():\n out[key]={'exists':os.path.isfile(path)}\n if os.path.isfile(path):\n  out[key]['sha256']=hashlib.sha256(open(path,'rb').read()).hexdigest()\n  out[key]['size']=os.path.getsize(path)\n if key=='manifest' and os.path.isfile(path): out[key]['version']=json.load(open(path)).get('version')\nout['logs']=os.path.isdir('/home/deck/homebrew/logs/Decky-SteamAchievements')\nout['debugger']=os.path.isfile('/home/deck/.steam/steam/.cef-enable-remote-debugging')\nprint(json.dumps(out,sort_keys=True))\nPY"""
     remote = run("ssh", host, script)
     try:
         details = json.loads(remote.stdout)

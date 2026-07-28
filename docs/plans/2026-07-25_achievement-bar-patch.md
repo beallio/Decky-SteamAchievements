@@ -292,7 +292,7 @@ Exact sequence (record each result as the approval evidence):
    via `ssh deck@<deck-host>`) and confirm `MiniAchievements` element count = **0**
    on that page.
 2. **Deploy + enable:** `npm run build` then `npm run package`; install the zip via
-   Decky (or copy `dist/` to `~/homebrew/plugins/Achievements Restored/`); enable the
+   Decky (or copy `dist/` to `~/homebrew/plugins/Decky-SteamAchievements/`); enable the
    plugin and reload the Steam UI (Decky "Reload" / restart Steam).
 3. **Verify (plugin ON):** return to the **same** game's app-details page, re-run
    `cdp_dom.py`, and confirm count = **1** with text like "ACHIEVEMENTS n/total"

@@ -1,4 +1,7 @@
-# Achievements Restored
+# Decky-SteamAchievements
+
+The distribution is named `Decky-SteamAchievements`; Decky's plugin list and opened QAM panel
+display the user-facing name `Achievements Restored`.
 
 A [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) plugin that
 **brings back the achievement progress bar Valve removed** from the Steam Deck
@@ -27,29 +30,66 @@ This plugin patches `MiniAchievements`' own `render` to supply the withheld
 `onSeek` prop, then schedules a re-render so React commits Valve's component.
 **It does not reimplement the bar.**
 
-Full investigation: [`HANDOFF.md`](HANDOFF.md) and
-[`research/diffs/removal_onSeek_guard.md`](research/diffs/removal_onSeek_guard.md).
+The plugin also preserves Valve's native installed-game behavior. Valve
+intentionally hides the compact bar for an uninstalled game with zero earned
+achievements, permits it for an uninstalled game with earned progress when that
+data is available, and hides it whenever Steam supplies no achievement total.
 
-## Develop
+## What the plugin includes
 
-```bash
-direnv allow            # loads .envrc: caches/scratch -> /tmp/Decky-SteamAchievements
-pnpm install            # or npm install
-pnpm run build          # rollup -> dist/index.js
-pnpm run package        # build + zip for install on the Deck
-```
+- A persistent **Achievement bar** toggle that can remove or restore the bar on
+  the currently open game page without reloading Steam.
+- A persistent **Debug logging** toggle for verbose troubleshooting output.
+- A gamepad-focusable **Versions** panel showing the installed plugin, Decky
+  Loader, and SteamOS versions.
+- Valve's own achievement rendering and native installed/data guards; the plugin
+  does not fabricate achievement data or replace Valve's bar.
 
-Deploy `dist/` to `~/homebrew/plugins/Achievements Restored/` on the Deck (Decky
-Loader picks it up), or install the packaged zip.
+## Install on Steam Deck
 
-## Layout
+Decky Loader must already be installed. In SteamOS Desktop Mode:
 
-- `src/index.tsx` — plugin entry (`definePlugin`).
-- `src/achievementBar.tsx` — the route patch that restores the bar.
-- `main.py` — minimal Decky backend (lifecycle only; the fix is frontend).
-- `scripts/` — Decky build/package helpers + `orchestration` (symlinked engine).
-- `docs/` — plans, specs, review notes (project + orchestration convention).
-- `research/` — the reverse-engineering artifacts (gitignored; reports curated).
+1. Download [`Decky-SteamAchievements Installer.zip`](installer/Decky-SteamAchievements%20Installer.zip).
+2. Extract the ZIP directly onto the Desktop. Keep the extracted
+   `Decky-SteamAchievementsInstaller` folder beside `Install Decky-SteamAchievements`.
+3. Double-click **Install Decky-SteamAchievements**. If KDE marks the downloaded
+   launcher as untrusted, review it and choose **Trust and Launch**.
+4. Confirm the plugin details and approve the administrator-authentication
+   prompt. Return to Gaming Mode when installation finishes.
+
+`Decky-SteamAchievements Installer.zip` is the user-facing desktop bundle. Its
+installer downloads the canonical `Decky-SteamAchievements.zip` asset from the
+latest stable, non-prerelease GitHub release, validates the archive, backs up an
+existing plugin copy, installs the replacement, and restarts Decky Loader. It
+intentionally ignores the rolling `dev-build` prerelease. Until the first stable
+release is published, the installer will report that no stable release is
+available. Run the launcher as the normal `deck` user; do not run the whole
+installer with `sudo`.
+
+### Install the plugin ZIP through Decky
+
+Decky can also install the `Decky-SteamAchievements.zip` plugin package directly:
+
+1. Download `Decky-SteamAchievements.zip` from the desired release and place it
+   in the Steam Deck's `Downloads` folder. Stable builds use a permanent `vX.Y.Z`
+   tag; current development builds are available from the rolling
+   [`dev-build` prerelease](https://github.com/beallio/Decky-SteamAchievements/releases/tag/dev-build).
+2. In Gaming Mode, open **QAM → Decky → Settings → General**.
+3. Under **Other**, enable **Developer mode**. This adds the **Developer** page
+   to Decky's settings sidebar.
+4. Open **Developer → Third-Party Plugins**.
+5. Beside **Install Plugin from ZIP File**, choose **Browse**, select
+   `Decky-SteamAchievements.zip` from `Downloads`, and approve Decky's
+   installation confirmation.
+
+Use the plugin ZIP for Decky's built-in installation flow. Do not select
+`Decky-SteamAchievements Installer.zip` there; that bundle is intended to be
+extracted and launched from SteamOS Desktop Mode as described above.
+
+## Development
+
+See [`DEVELOPER.md`](DEVELOPER.md) for setup, build, test, packaging, deployment,
+release tooling, installer-bundle maintenance, and repository layout information.
 
 ## License
 

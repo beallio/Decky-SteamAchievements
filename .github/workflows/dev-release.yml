@@ -1,0 +1,144 @@
+# Every dev push replaces one rolling prerelease at the fixed dev-build tag.
+# This channel deliberately carries only the ZIP and is not updater discovery.
+name: Dev Release
+
+on:
+  push:
+    branches:
+      - dev
+
+concurrency:
+  group: dev-release
+  cancel-in-progress: true
+
+jobs:
+  publish-dev:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out triggering dev revision
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run source and build checks
+        run: |
+          set -euo pipefail
+          python3 scripts/check_source_metadata.py
+          npx tsc --noEmit
+          npm run build
+          npm test
+          python3 -m py_compile main.py
+
+      - name: Build rolling development package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          node scripts/package.mjs \
+            --release \
+            --release-version "$version" \
+            --release-tag dev-build \
+            --channel dev
+          python3 scripts/validate_plugin_zip.py \
+            Decky-SteamAchievements.zip \
+            --expected-root Decky-SteamAchievements \
+            --expected-name "Achievements Restored" \
+            --expected-version "$version"
+
+      - name: Reconcile rolling tag, release, and ZIP asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          set +e
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/dev-build" \
+            2> "$RUNNER_TEMP/dev-release-api.err")"
+          release_status=$?
+          set -e
+          if ((release_status == 0)); then
+            release_exists=1
+          elif grep -Eq 'HTTP 404|status code 404' "$RUNNER_TEMP/dev-release-api.err"; then
+            release_exists=0
+          else
+            echo "dev-release: failed to query existing release" >&2
+            cat "$RUNNER_TEMP/dev-release-api.err" >&2
+            exit 1
+          fi
+
+          set +e
+          tag_listing="$(git ls-remote --tags origin refs/tags/dev-build 2>&1)"
+          tag_status=$?
+          set -e
+          if ((tag_status != 0)); then
+            echo "dev-release: failed to query rolling tag: $tag_listing" >&2
+            exit 1
+          fi
+          if [[ -n "$tag_listing" ]]; then
+            tag_exists=1
+          else
+            tag_exists=0
+          fi
+
+          set +e
+          dev_listing="$(git ls-remote --heads origin refs/heads/dev 2>&1)"
+          dev_status=$?
+          set -e
+          if ((dev_status != 0)); then
+            echo "dev-release: failed to query current dev head: $dev_listing" >&2
+            exit 1
+          fi
+          remote_dev="$(awk '$2 == "refs/heads/dev" { print $1 }' <<< "$dev_listing")"
+          if [[ -z "$remote_dev" || "$remote_dev" != "$GITHUB_SHA" ]]; then
+            echo "dev-release: refusing stale run; origin/dev=$remote_dev run=$GITHUB_SHA" >&2
+            exit 1
+          fi
+
+          echo "dev-release: existing release=$release_exists existing tag=$tag_exists"
+          git push origin "$GITHUB_SHA:refs/tags/dev-build" --force
+
+          updated_tag="$(git ls-remote --tags origin refs/tags/dev-build)"
+          updated_oid="$(awk '$2 == "refs/tags/dev-build" { print $1 }' <<< "$updated_tag")"
+          if [[ "$updated_oid" != "$GITHUB_SHA" ]]; then
+            echo "dev-release: rolling tag did not move to current dev head" >&2
+            exit 1
+          fi
+
+          short_hash="${GITHUB_SHA::7}"
+          title="Dev build ($short_hash)"
+          notes="Automated development build from commit $GITHUB_SHA."
+          if ((release_exists == 1)); then
+            while IFS= read -r asset_id; do
+              [[ -n "$asset_id" ]] || continue
+              gh api --method DELETE \
+                "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+            done < <(jq -r '.assets[].id' <<< "$release_json")
+            gh release upload dev-build Decky-SteamAchievements.zip
+            gh release edit dev-build \
+              --prerelease \
+              --title "$title" \
+              --notes "$notes"
+          else
+            gh release create dev-build Decky-SteamAchievements.zip \
+              --verify-tag \
+              --prerelease \
+              --title "$title" \
+              --notes "$notes"
+          fi

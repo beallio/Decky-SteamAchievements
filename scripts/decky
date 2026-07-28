@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "decky: not in a Git repository" >&2; exit 1; }
 cd "$repo_root"
-tmp_root="${DECKY_TMP_ROOT:-/tmp/Decky-Metadata}"
+tmp_root="${DECKY_TMP_ROOT:-/tmp/Decky-SteamAchievements}"
 tmp_root="$(realpath -m "$tmp_root")"
 [[ "$tmp_root" == /tmp || "$tmp_root" == /tmp/* ]] || {
   echo "decky: DECKY_TMP_ROOT must resolve below /tmp" >&2
@@ -19,11 +19,22 @@ Commands:
   doctor [--deck] [--json] [--quiet]
   verify-change [BASE_REF] [--explain] [--device] [--allow-launch] [--extended]
   capture [--since TIMESTAMP] [--include-settings]
-  package-push [--build] [--push] [--force] [--json]
+  package-push
   status [--deck] [--json]
   steamui snapshot
   steamui search PATTERN [--build BUILD_ID]
 EOF
+}
+
+unavailable() {
+  cat >&2 <<EOF
+decky: '$1' is unavailable in this repository.
+
+It requires scripts/deck/ (on-device tooling), which Decky-SteamAchievements does not have.
+Those helpers have not been adopted by this repository. Available here: doctor,
+status, and package-push.
+EOF
+  exit 3
 }
 
 invalid() { echo "decky: $*" >&2; usage >&2; exit 2; }
@@ -32,11 +43,15 @@ cmd="${1:-}"
 [[ -n "$cmd" ]] || { usage; exit 2; }
 shift
 case "$cmd" in
-  doctor) exec ./run.sh python3 scripts/decky_doctor.py "$@" ;;
-  status) exec ./run.sh python3 scripts/decky_doctor.py "$@" ;;
-  capture) exec scripts/deck/capture.sh "$@" ;;
-  package-push) exec scripts/deck/package_push.sh "$@" ;;
-  steamui) exec scripts/deck/steamui.sh "$@" ;;
+  # The project health report is stdlib-only.
+  doctor) exec python3 scripts/decky_doctor.py "$@" ;;
+  status) exec python3 scripts/decky_doctor.py "$@" ;;
+  capture) unavailable capture ;;
+  package-push)
+    (($# == 0)) || invalid "package-push accepts no options"
+    DECKY_POST_COMMIT_ALL=1 exec scripts/post_commit.sh
+    ;;
+  steamui) unavailable steamui ;;
   verify-change)
     base=""; explain=0; device=0; allow_launch=0; extended=0
     while (($#)); do
@@ -94,14 +109,9 @@ case "$cmd" in
         echo "verify-change: --allow-launch requires an explicit MATCHED_APPID for this change" >&2
         exit 2
       fi
-      scripts/deck/deploy.sh
-      args=(--no-launch)
-      ((allow_launch)) && args=()
-      ((extended)) && args+=(--extended)
-      if ! scripts/deck/verify/run_all.sh "${args[@]}"; then
-        scripts/deck/capture.sh || true
-        exit 1
-      fi
+      # On-device verification needs scripts/deck/, which this repo does not have.
+      # Fail loudly rather than reporting a pass that was never performed.
+      unavailable "verify-change --device"
       if [[ -n "${required_checks[launch]:-}" && "$allow_launch" == 0 ]]; then
         echo "STATUS DEFERRED"
         echo "OUTSTANDING launch (rerun with --device --allow-launch and explicit MATCHED_APPID)"

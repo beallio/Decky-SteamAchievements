@@ -1,6 +1,6 @@
 # HANDOFF — Steam Deck Achievement Bar Investigation
 
-**Last updated:** 2026-07-25
+**Last updated:** 2026-07-27
 **Task origin:** `steam_achievement_bar_recovery_plan.md` (in this folder)
 **Status:** **SOLVED (root cause confirmed live).** See CONCLUSION below. Sections §0–§9 are the investigation trail that led here; some intermediate hypotheses in them (orphaned code, controller-settings red herring) were superseded — CONCLUSION is authoritative.
 
@@ -19,6 +19,28 @@ if (!this.props.onSeek) return null;
 - **When:** Steam client update between changelist **10538461** (2026-03-20, guard absent) and **10546225** (2026-03-24, guard present). SteamTracking commit **`29f8d5c9a5c3`**. **NOT April 30** — the plan's date/commits were wrong.
 - **Why it hides the bar on the Deck:** the Steam Deck / gamescope game-details header renders its PlayBar with **`onSeek: void 0`** (the non-interactive header variant). `GameStatsSection` forwards that undefined `onSeek` to `MiniAchievements`; the new guard then returns `null`. On surfaces where the PlayBar gets a real `onSeek` (`t.SeekToSection`, the clickable in-page/desktop variant) the bar still renders.
 - **Live proof (read-only CDP, user's Deck, Brotato appid 1942280):** the rendered `GameStatsSection` shows "LAST PLAYED / PLAY TIME" only; React fiber prop `onSeek === undefined`; `MiniAchievements` element count = 0. `installed:true`, so it's not the install/data guard.
+
+### Valve's intended installed/uninstalled behavior
+
+`MiniAchievements` already had this guard before Valve added the `!onSeek` guard:
+
+```js
+if (!this.props.overview.installed && 0 == achievements.nAchieved) return null;
+```
+
+Its intended behavior is therefore:
+
+| Game state | Valve component behavior |
+|---|---|
+| Installed, achievement total available | Show the progress bar |
+| Uninstalled, one or more achievements earned, data available | May show the progress bar |
+| Uninstalled, zero achievements earned | Hide the progress bar intentionally |
+| Achievement total unavailable (`!nTotal`) | Hide the progress bar |
+
+The plugin must preserve these native install/data guards and remedy only the later
+`!onSeek` regression. A read-only live probe on 2026-07-26 found cached totals for
+only 4 of 58 uninstalled Steam games, so most uninstalled games have no accurate
+progress data for Valve's component to display.
 
 **Restoration options for a Decky plugin (research only — not implemented):** the component + CSS + `GetAchievements(appid)` store all still exist, so any of:
 1. Patch the app-details PlayBar render to pass a real (or no-op) `onSeek` so `MiniAchievements` renders again.
