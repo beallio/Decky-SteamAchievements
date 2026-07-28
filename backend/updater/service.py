@@ -613,4 +613,3 @@ class PluginUpdater:
         with self._state_lock:
             pending = self._cache.get("pending_update_install")
             return effective_pending_install_version(pending, self._now) is not None
-

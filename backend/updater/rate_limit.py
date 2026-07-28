@@ -24,4 +24,3 @@ def parse_rate_limit_retry_after(headers: Mapping[str, str], now: datetime.datet
     if not retry_after_str:
         retry_after_str = (now + datetime.timedelta(minutes=1)).isoformat()
     return retry_after_str
-

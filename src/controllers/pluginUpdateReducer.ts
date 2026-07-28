@@ -170,4 +170,3 @@ export function updateReducer(state: UpdateState, action: UpdateAction): UpdateS
       return state;
   }
 }
-

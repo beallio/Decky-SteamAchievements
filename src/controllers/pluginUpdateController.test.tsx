@@ -7,7 +7,7 @@ let stateIdx = 0;
 let states: any[] = [];
 let setters: any[] = [];
 
-const { activeEffects, activeUnmounts } = vi.hoisted(() => ({ 
+const { activeEffects, activeUnmounts } = vi.hoisted(() => ({
   activeEffects: [] as Array<{ cb: any, deps: any[] }>,
   activeUnmounts: [] as any[]
 }));

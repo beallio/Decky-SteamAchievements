@@ -67,4 +67,3 @@ def test_validator_rejects_non_source_backend_payloads(
             expected_name="Achievements Restored",
             expected_version="0.1.1",
         )
-

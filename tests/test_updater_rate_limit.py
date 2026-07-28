@@ -26,4 +26,3 @@ def test_parse_rate_limit_retry_after():
         parse_rate_limit_retry_after({"x-ratelimit-reset": "invalid"}, now)
         == "2025-01-01T12:01:00+00:00"
     )
-

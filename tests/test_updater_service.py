@@ -524,4 +524,3 @@ def test_check_for_plugin_update_pending_fast_path() -> None:
     # check_for_update called with fast path
     res = updater.check_for_update("0.2.1-dev.g123", force=True)
     assert res["status"] == "current"
-

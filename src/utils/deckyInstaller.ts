@@ -52,4 +52,3 @@ export async function invokeDeckyInstaller(
     throw new Error("Decky Loader backend has no compatible RPC interface.");
   }
 }
-

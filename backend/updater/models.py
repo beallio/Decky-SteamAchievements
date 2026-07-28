@@ -154,4 +154,3 @@ def parse_release_manifest(payload: object) -> ReleaseManifest | None:
         sha256=sha256,
         generated_at=generated_at,
     )
-

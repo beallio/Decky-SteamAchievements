@@ -106,4 +106,3 @@ class GitHubReleaseClient:
 
     def get_manifest(self, url: str) -> JsonResponse:
         return self._fetch_json(url)
-

@@ -48,4 +48,3 @@ def test_github_release_client_network_error(monkeypatch) -> None:
     assert res.status == 500
     assert isinstance(res.body, dict)
     assert "Network unreachable" in res.body.get("error", "")
-

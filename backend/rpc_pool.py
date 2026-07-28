@@ -107,4 +107,3 @@ class DaemonThreadPool(Executor):
                 item.future.set_exception(exc)
             else:
                 item.future.set_result(result)
-

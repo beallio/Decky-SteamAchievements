@@ -156,7 +156,7 @@ export function usePluginUpdateController({
               (state.installedOverride && candidateVersion === state.installedOverride.version) ||
               candidateVersion === state.pendingInstallVersion ||
               candidateVersion === effectiveCurrentVersion;
-            
+
             if (isStale) {
               logUpdate(null, "check_success", { status: "current", stale_coerced: true, elapsed_ms });
               dispatch({ type: "CHECK_SUCCESS_CURRENT", result: { status: "current", checked_at: res.checked_at, channel: updateChannel } });
@@ -214,7 +214,7 @@ export function usePluginUpdateController({
       clearCheckTimeout();
       inFlightCheck.current = null;
       dispatch({ type: "INSTALL_SUCCESS", version, channel, preInstallVersion: currentVersion });
-      
+
       try {
         const confirmRes = await confirmUpdateInstallHandoffCall(version);
         if ("status" in confirmRes && (confirmRes.status === "failed" || confirmRes.status === "skipped")) {
@@ -266,7 +266,7 @@ export function usePluginUpdateController({
         if (result && !("status" in result && (result.status === "failed" || result.status === "skipped"))) {
           const ctx = result as UpdateCheckContext;
           const pendingInstall = ctx.pending_update_install;
-          
+
           if (
             pendingInstall?.version &&
             ctx.effective_installed_version === pendingInstall.version &&
@@ -275,7 +275,7 @@ export function usePluginUpdateController({
             const pendingChannel: UpdateChannel =
               pendingInstall.channel === "development" ? "development" : "stable";
             hydratedPendingInstallVersion.current = pendingInstall.version;
-            
+
             activeCheckId.current += 1;
             clearCheckTimeout();
             inFlightCheck.current = null;

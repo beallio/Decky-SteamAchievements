@@ -213,4 +213,3 @@ def test_prevalidate_rejects_free_failures_without_fetch() -> None:
     assert prevalidate_release_candidate(releases[2]) is None
     assert prevalidate_release_candidate(releases[3]) is None
     assert prevalidate_release_candidate(releases[4]) is not None
-

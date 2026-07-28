@@ -52,4 +52,3 @@ export function PluginPanelContent(props: Props) {
     </FocusablePanel>
   );
 }
-

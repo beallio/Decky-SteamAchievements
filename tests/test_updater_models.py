@@ -36,4 +36,3 @@ def test_parse_release_manifest() -> None:
 
     # Not a dict
     assert parse_release_manifest(["not", "dict"]) is None
-

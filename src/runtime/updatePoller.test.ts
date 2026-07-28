@@ -276,4 +276,3 @@ describe("createUpdatePoller", () => {
     expect(checkForUpdate).toHaveBeenCalledTimes(2);
   });
 });
-

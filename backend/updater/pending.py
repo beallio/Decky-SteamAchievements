@@ -61,4 +61,3 @@ def effective_pending_install_version(
         if isinstance(version, str) and version:
             return version
     return None
-
