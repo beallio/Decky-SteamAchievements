@@ -1,5 +1,12 @@
 import { Field, PanelSection, PanelSectionRow } from "@decky/ui";
-import type { Ref } from "react";
+import type { FocusEvent, Ref } from "react";
+
+const revealOnFocus = {
+  // Decky's Field forwards DOM focus props even though its public type omits them.
+  onFocus: (event: FocusEvent<HTMLDivElement>) => {
+    event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+  },
+};
 
 export function DescriptionSection({ focusRef }: { focusRef?: Ref<HTMLDivElement> }) {
   return (
@@ -7,6 +14,7 @@ export function DescriptionSection({ focusRef }: { focusRef?: Ref<HTMLDivElement
       <PanelSectionRow>
         <Field
           ref={focusRef}
+          {...revealOnFocus}
           focusable={true}
           highlightOnFocus={false}
           preferredFocus={true}

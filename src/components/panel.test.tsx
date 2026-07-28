@@ -30,6 +30,7 @@ describe("focusable QAM sections", () => {
   it("starts at the restored description without a focus highlight", () => {
     const tree = DescriptionSection({});
     const fields = collect(tree, "Field");
+    const scrollIntoView = vi.fn();
 
     expect(tree.props.title).toBeUndefined();
     expect(fields).toHaveLength(1);
@@ -37,6 +38,12 @@ describe("focusable QAM sections", () => {
     expect(fields[0].props.preferredFocus).toBe(true);
     expect(fields[0].props.highlightOnFocus).toBe(false);
     expect(fields[0].props.onActivate).toEqual(expect.any(Function));
+    expect(fields[0].props.onFocus).toEqual(expect.any(Function));
+    fields[0].props.onFocus({ currentTarget: { scrollIntoView } });
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      block: "nearest",
+      inline: "nearest",
+    });
     expect(fields[0].props.childrenLayout).toBe("below");
     expect(fields[0].props.childrenContainerWidth).toBe("max");
     expect(JSON.stringify(fields[0].props.children)).toContain(
