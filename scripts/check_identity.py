@@ -48,6 +48,22 @@ def check(root: Path) -> list[str]:
     if "name: PLUGIN_NAME" not in index or "{QAM_TITLE}</div>" not in index:
         errors.append("definePlugin name and titleView must use their distinct constants")
 
+    dev_release = (root / ".github" / "workflows" / "dev-release.yml").read_text(
+        encoding="utf-8"
+    )
+    workflow_expectations = (
+        "--expected-root Decky-SteamAchievements",
+        '--expected-name "Achievements Restored"',
+    )
+    for expected in workflow_expectations:
+        if expected not in dev_release:
+            errors.append(f"dev-release package validation must include {expected!r}")
+    if "--expected-name Decky-SteamAchievements" in dev_release:
+        errors.append(
+            "dev-release package validation still expects the distribution name "
+            "as plugin.json name"
+        )
+
     for path in tracked_files(root):
         relative = path.relative_to(root)
         if relative.suffix.lower() != ".md":

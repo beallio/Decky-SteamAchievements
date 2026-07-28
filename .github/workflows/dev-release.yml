@@ -57,7 +57,8 @@ jobs:
             --channel dev
           python3 scripts/validate_plugin_zip.py \
             Decky-SteamAchievements.zip \
-            --expected-name Decky-SteamAchievements \
+            --expected-root Decky-SteamAchievements \
+            --expected-name "Achievements Restored" \
             --expected-version "$version"
 
       - name: Reconcile rolling tag, release, and ZIP asset
