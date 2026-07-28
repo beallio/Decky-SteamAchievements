@@ -52,6 +52,21 @@ metadata, changelog, monotonicity, quality gates, and the ZIP before publishing 
 - `Decky-SteamAchievements-vX.Y.Z.zip.sha256`
 - `Decky-SteamAchievements-vX.Y.Z.manifest.json`
 
+### Recover a failed publication without rewriting the tag
+
+If the tag-triggered workflow fails because of the workflow itself, fix and promote the workflow
+through `dev` and `main`; never move, force-push, or delete the permanent semver tag. Once the fix
+is on `main`, dispatch the same workflow from `main` with the existing tag:
+
+```bash
+gh workflow run Release --ref main -f tag=vX.Y.Z
+gh run watch RUN_ID --exit-status
+```
+
+The recovery job checks out the existing tag and runs the same provenance, metadata, changelog,
+quality, monotonicity, and ZIP gates before publication. This path can recover a workflow defect;
+it cannot repair invalid source or release metadata already captured by the tag.
+
 ## Understand the three states
 
 1. **Local-only orchestration (current).** `orchestration.conf.local` sets
