@@ -64,3 +64,21 @@ Device: `steamdeck`
 - The QAM panel title text is `Achievements Restored`. The rendered title currently has no
   heading role or explicit ARIA label; changing those semantics would not require changing the
   canonical plugin identity.
+
+## Display-name migration addendum
+
+The user subsequently chose `Achievements Restored` for both Decky's plugin-list label and QAM
+title. The exact build `0.1.0+59341a5` was packaged with a canonical
+`Decky-SteamAchievements/` ZIP root and a `plugin.json` name of `Achievements Restored`.
+
+- The former manifest identity was removed through Decky's supported uninstall confirmation and
+  the new package was installed through `utilities/install_plugin` with its exact SHA-256.
+- The only installed directory remained
+  `/home/deck/homebrew/plugins/Decky-SteamAchievements`; the settings remained under
+  `/home/deck/homebrew/settings/Decky-SteamAchievements` with `feature_enabled: true` and
+  `debug_logging: false`.
+- Decky Loader registered exactly one plugin named `Achievements Restored`, at version
+  `0.1.0+59341a5`. The plugin-list button and opened-panel title both displayed that text, and the
+  list contained no `Decky-SteamAchievements` display entry.
+- Returning to Brotato showed exactly one restored achievement row and no blank layout. Decky
+  Loader remained active.
