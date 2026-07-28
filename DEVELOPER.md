@@ -47,6 +47,12 @@ The frontend build is written to `dist/index.js`. The orchestration gate also
 checks source-metadata identity/version agreement and compiles the Python entry
 point.
 
+`rollup.config.js` carries the small Decky-compatible build configuration directly. Keep the
+React/Decky globals, manifest substitution, asset URL, sourcemap transform, and narrowly scoped
+`dist/` cleanup aligned when changing it. The repository intentionally does not depend on
+`@decky/rollup`: its unused CommonJS transform and legacy delete chain introduced high-severity
+build-only audit findings. Run `npm audit --audit-level=high` after dependency changes.
+
 ## Package the plugin
 
 ```bash
