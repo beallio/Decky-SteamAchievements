@@ -231,7 +231,7 @@ Only begin device mutation after all local checks pass.
    directory exists.
 6. Confirm `plugin_loader.service` is active and current plugin logs contain neither
    `ModuleNotFoundError` nor a backend startup failure.
-7. In Gaming Mode, open Achievements Restored and confirm:
+7. In Gaming Mode, open the Achievements Restored Decky QAM panel and confirm:
    - the Updates section renders and loads its RPC-backed state;
    - Check Now completes without a backend error;
    - existing settings remain intact;
