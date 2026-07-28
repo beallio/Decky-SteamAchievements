@@ -17,13 +17,27 @@ fi
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
+if ! worktree_status="$(git status --porcelain --untracked-files=normal 2>/dev/null)"; then
+  echo "request-dev-release: unable to inspect working tree status" >&2
+  exit 1
+fi
+if [[ -n "$worktree_status" ]]; then
   echo "request-dev-release: working tree must be clean" >&2
   exit 1
 fi
 
 if ! gh auth status >/dev/null 2>&1; then
   echo "request-dev-release: authenticate GitHub CLI first" >&2
+  exit 1
+fi
+
+remote_name="origin"
+if ! git remote get-url "$remote_name" >/dev/null 2>&1; then
+  echo "request-dev-release: remote '$remote_name' is not configured" >&2
+  exit 1
+fi
+if ! git fetch --quiet --prune --tags "$remote_name"; then
+  echo "request-dev-release: failed to refresh origin branches and tags" >&2
   exit 1
 fi
 
@@ -46,5 +60,21 @@ fi
 
 python3 scripts/version_guard.py check-base "$base_version"
 
+if ! remote_refs="$(
+  git for-each-ref \
+    --format='%(refname)' \
+    --contains "$full_sha" \
+    "refs/remotes/$remote_name"
+)"; then
+  echo "request-dev-release: failed to inspect refreshed origin refs" >&2
+  exit 1
+fi
+if [[ -z "$remote_refs" ]]; then
+  echo "request-dev-release: commit $full_sha is not reachable from origin" >&2
+  exit 1
+fi
+
 echo "Requesting immutable development release for $base_version at $full_sha"
-gh workflow run immutable-dev-release.yml   -f base_version="$base_version"   -f commit="$full_sha"
+gh workflow run immutable-dev-release.yml \
+  -f base_version="$base_version" \
+  -f commit="$full_sha"
