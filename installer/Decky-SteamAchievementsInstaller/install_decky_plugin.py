@@ -178,7 +178,9 @@ def fail(message: str) -> NoReturn:
     raise InstallerError(message)
 
 
-def run_kdialog(option: str, message: str, *, title: str = "Decky Plugin Installer") -> int:
+def run_kdialog(
+    option: str, message: str, *, title: str = "Decky-SteamAchievements Installer"
+) -> int:
     command = ["kdialog", option, message, "--title", title]
     try:
         return subprocess.run(command, check=False).returncode
@@ -207,7 +209,14 @@ def gui_status(message: str, seconds: int = 4) -> None:
         return
     try:
         subprocess.Popen(
-            ["kdialog", "--passivepopup", message, str(seconds), "--title", "Decky Plugin Installer"],
+            [
+                "kdialog",
+                "--passivepopup",
+                message,
+                str(seconds),
+                "--title",
+                "Decky-SteamAchievements Installer",
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -1497,7 +1506,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     GUI_ENABLED = bool(args.gui)
     if GUI_ENABLED:
         desktop = Path.home() / "Desktop"
-        GUI_LOG_PATH = (desktop if desktop.is_dir() else Path.home()) / "Decky Plugin Installer.log"
+        GUI_LOG_PATH = (
+            desktop if desktop.is_dir() else Path.home()
+        ) / "Decky-SteamAchievements Installer.log"
         require_executable("kdialog")
         require_executable("pkexec")
         _write_log("INFO", "Started graphical installer")

@@ -18,7 +18,7 @@ describe("verbose frontend logging", () => {
     log.setVerboseLogging(true);
     log.debug("test", "shown");
     log.trace("test", "shown");
-    expect(debug).toHaveBeenCalledWith("[AchievementsRestored:test]", "shown");
-    expect(trace).toHaveBeenCalledWith("[AchievementsRestored:test]", "shown");
+    expect(debug).toHaveBeenCalledWith("[Decky-SteamAchievements:test]", "shown");
+    expect(trace).toHaveBeenCalledWith("[Decky-SteamAchievements:test]", "shown");
   });
 });

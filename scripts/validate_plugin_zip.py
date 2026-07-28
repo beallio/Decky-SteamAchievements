@@ -149,7 +149,7 @@ def validate_archive(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate an Achievements Restored plugin ZIP.")
+    parser = argparse.ArgumentParser(description="Validate a Decky-SteamAchievements plugin ZIP.")
     parser.add_argument("zip_path", type=Path, help="Path to the ZIP file to validate.")
     parser.add_argument("--expected-version", help="Expected version of the plugin.")
     parser.add_argument(

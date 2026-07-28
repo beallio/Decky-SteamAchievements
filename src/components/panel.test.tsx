@@ -84,7 +84,7 @@ describe("focusable QAM sections", () => {
     expect(fields.every((entry) => entry.props.padding === "standard")).toBe(true);
     expect(
       fields.every(
-        (entry) => entry.props.className === "achievements-restored-version-row",
+        (entry) => entry.props.className === "decky-steamachievements-version-row",
       ),
     ).toBe(true);
     expect(styles[0].props.children).toContain("padding-top: 4px");

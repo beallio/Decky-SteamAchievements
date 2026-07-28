@@ -10,7 +10,7 @@ dist/
 build/
 build-package/
 *.zip
-!installer/Achievements Restored Installer.zip
+!installer/Decky-SteamAchievements Installer.zip
 
 # research scratch (large extracted Steam bundles; curated reports live in research/reports)
 research/

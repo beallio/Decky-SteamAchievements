@@ -13,7 +13,7 @@ import pytest
 
 @pytest.fixture()
 def plugin_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    logger = logging.getLogger(f"achievements-restored-test-{id(tmp_path)}")
+    logger = logging.getLogger(f"decky-steamachievements-test-{id(tmp_path)}")
     logger.setLevel(logging.INFO)
     decky = types.SimpleNamespace(
         logger=logger,
@@ -22,7 +22,7 @@ def plugin_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     monkeypatch.setitem(sys.modules, "decky", decky)
     spec = importlib.util.spec_from_file_location(
-        f"achievements_restored_main_{id(tmp_path)}",
+        f"decky_steamachievements_main_{id(tmp_path)}",
         Path(__file__).parents[1] / "main.py",
     )
     assert spec and spec.loader

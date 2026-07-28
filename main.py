@@ -1,4 +1,4 @@
-"""Achievements Restored — Decky backend.
+"""Decky-SteamAchievements backend.
 
 The restoration is entirely frontend (re-render Valve's own MiniAchievements
 component by supplying the onSeek prop its guard requires). This backend is a
@@ -124,13 +124,13 @@ class Plugin:
 
     async def _main(self) -> None:
         self._apply_debug_logging(self._load_settings()["debug_logging"])
-        decky.logger.info("Achievements Restored: backend started")
+        decky.logger.info("Decky-SteamAchievements: backend started")
 
     async def _unload(self) -> None:
-        decky.logger.info("Achievements Restored: backend unloaded")
+        decky.logger.info("Decky-SteamAchievements: backend unloaded")
 
     async def _uninstall(self) -> None:
-        decky.logger.info("Achievements Restored: uninstalled")
+        decky.logger.info("Decky-SteamAchievements: uninstalled")
 
     async def get_settings(self) -> dict[str, bool]:
         settings = self._load_settings()
