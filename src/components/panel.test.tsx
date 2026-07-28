@@ -30,7 +30,6 @@ describe("focusable QAM sections", () => {
   it("starts at the restored description without a focus highlight", () => {
     const tree = DescriptionSection({});
     const fields = collect(tree, "Field");
-    const scrollIntoView = vi.fn();
 
     expect(tree.props.title).toBeUndefined();
     expect(fields).toHaveLength(1);
@@ -39,17 +38,46 @@ describe("focusable QAM sections", () => {
     expect(fields[0].props.highlightOnFocus).toBe(false);
     expect(fields[0].props.onActivate).toEqual(expect.any(Function));
     expect(fields[0].props.onFocus).toEqual(expect.any(Function));
-    fields[0].props.onFocus({ currentTarget: { scrollIntoView } });
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      block: "nearest",
-      inline: "nearest",
-    });
     expect(fields[0].props.childrenLayout).toBe("below");
     expect(fields[0].props.childrenContainerWidth).toBe("max");
     expect(JSON.stringify(fields[0].props.children)).toContain(
       "Restores the achievement progress bar",
     );
     expect(JSON.stringify(fields[0].props.children)).not.toContain("Active.");
+  });
+
+  it("resets the outer QAM scroller after focus returns to the description", () => {
+    const tree = DescriptionSection({});
+    const field = collect(tree, "Field")[0];
+    const frames: FrameRequestCallback[] = [];
+    const scroller = {
+      parentElement: null,
+      scrollTop: 140,
+      scrollHeight: 640,
+      clientHeight: 440,
+    };
+    const currentTarget = {
+      parentElement: scroller,
+      scrollIntoView: vi.fn(),
+    };
+
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    vi.stubGlobal("getComputedStyle", (element: unknown) => ({
+      overflowY: element === scroller ? "auto" : "visible",
+    }));
+
+    field.props.onFocus({ currentTarget });
+
+    expect(frames).toHaveLength(1);
+    expect(scroller.scrollTop).toBe(140);
+    frames[0](0);
+    expect(scroller.scrollTop).toBe(0);
+    expect(currentTarget.scrollIntoView).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
   });
 
   it("renders two independently focusable settings with concise copy", () => {
