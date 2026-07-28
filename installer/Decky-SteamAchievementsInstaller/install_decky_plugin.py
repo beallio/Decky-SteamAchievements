@@ -50,6 +50,9 @@ DISTRIBUTION_PLUGIN_URL = "https://github.com/beallio/Decky-SteamAchievements"
 # Optional distribution defaults. Leave these empty/False to use the latest
 # stable release and require the normal confirmation prompt.
 DISTRIBUTION_ASSET = "Decky-SteamAchievements.zip"
+DISTRIBUTION_FOLDER = "Decky-SteamAchievements"
+DISTRIBUTION_PLUGIN_NAME = "Achievements Restored"
+DISTRIBUTION_LEGACY_PLUGIN_NAMES = ("Decky-SteamAchievements",)
 DISTRIBUTION_RELEASE_TAG = ""
 DISTRIBUTION_INCLUDE_PRERELEASE = False
 DISTRIBUTION_EXPECTED_SHA256 = ""
@@ -825,8 +828,19 @@ def install_remote_binaries(
         destination.chmod(0o755)
 
 
-def find_existing_plugin(plugin_root: Path, plugin_name: str) -> Path | None:
+def identity_aliases(package: PluginPackage) -> tuple[str, ...]:
+    if package.folder == DISTRIBUTION_FOLDER and package.name == DISTRIBUTION_PLUGIN_NAME:
+        return DISTRIBUTION_LEGACY_PLUGIN_NAMES
+    return ()
+
+
+def find_existing_plugin(
+    plugin_root: Path,
+    plugin_name: str,
+    aliases: Sequence[str] = (),
+) -> Path | None:
     matches: list[Path] = []
+    accepted_names = {plugin_name, *aliases}
     try:
         children = list(plugin_root.iterdir())
     except OSError as exc:
@@ -840,7 +854,7 @@ def find_existing_plugin(plugin_root: Path, plugin_name: str) -> Path | None:
             data = json.loads(manifest.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             continue
-        if isinstance(data, dict) and data.get("name") == plugin_name:
+        if isinstance(data, dict) and data.get("name") in accepted_names:
             matches.append(child)
 
     if len(matches) > 1:
@@ -890,7 +904,12 @@ def atomic_privileged_replace(
     run_command(["mv", "-f", "--", temporary, destination], sudo=True)
 
 
-def update_plugin_order(settings_file: Path, plugin_name: str, work_dir: Path) -> None:
+def update_plugin_order(
+    settings_file: Path,
+    plugin_name: str,
+    work_dir: Path,
+    aliases: Sequence[str] = (),
+) -> None:
     if not settings_file.exists():
         return
 
@@ -907,9 +926,19 @@ def update_plugin_order(settings_file: Path, plugin_name: str, work_dir: Path) -
         order = []
     if not isinstance(order, list) or not all(isinstance(item, str) for item in order):
         fail("Cannot update Decky settings: pluginOrder is not a string array")
-    if plugin_name not in order:
-        order.append(plugin_name)
-    settings["pluginOrder"] = order
+    accepted_names = {plugin_name, *aliases}
+    migrated_order: list[str] = []
+    inserted = False
+    for item in order:
+        if item in accepted_names:
+            if not inserted:
+                migrated_order.append(plugin_name)
+                inserted = True
+        else:
+            migrated_order.append(item)
+    if not inserted:
+        migrated_order.append(plugin_name)
+    settings["pluginOrder"] = migrated_order
 
     mode, uid, gid = stat_maybe_sudo(settings_file)
     generated = work_dir / "loader.json.updated"
@@ -1014,7 +1043,8 @@ def perform_install(
     owner_uid: int | None = None,
     owner_gid: int | None = None,
 ) -> Path | None:
-    existing = find_existing_plugin(plugin_root, package.name)
+    aliases = identity_aliases(package)
+    existing = find_existing_plugin(plugin_root, package.name, aliases)
     target_path = plugin_root / package.folder
     if target_path.exists() and target_path != existing:
         fail(f"Target folder already exists but belongs to another plugin: {target_path}")
@@ -1074,7 +1104,7 @@ def perform_install(
         run_command(["mv", "--", transaction.target_stage, target_path], sudo=True)
         transaction.target_stage = None
 
-        update_plugin_order(settings_file, package.name, work_dir)
+        update_plugin_order(settings_file, package.name, work_dir, aliases)
 
         info("Starting Decky Loader...")
         run_command(["systemctl", "start", SERVICE_NAME], sudo=True)
@@ -1569,7 +1599,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         info("Validating package contents...")
         package = validate_and_extract_package(archive_path, extract_root)
         install_remote_binaries(package, allow_http=args.allow_http)
-        existing = find_existing_plugin(plugin_root, package.name)
+        existing = find_existing_plugin(
+            plugin_root,
+            package.name,
+            identity_aliases(package),
+        )
         display_plan(resolved, package, actual_sha256, existing)
 
         hash_warning = ""

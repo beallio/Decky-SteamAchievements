@@ -3,9 +3,10 @@
 ## Objective
 
 Finish `feat/focusable-settings-versions-panel` under the revised identity contract: use
-`Decky-SteamAchievements` for the repository, plugin manifest, installed directory, documentation,
-installer, backend identity, and release artifacts. Keep `Achievements Restored` only as the QAM
-title supplied by `src/index.tsx`. Prove the feature on the Steam Deck, merge the reviewed branch
+`Decky-SteamAchievements` for the repository, distribution ZIP/root, installed directory,
+documentation, installer, backend namespace, and release artifacts. Use `Achievements Restored`
+as the `plugin.json` display identity shown in Decky's plugin list and as the QAM title supplied by
+`src/index.tsx`. Prove the feature on the Steam Deck, merge the reviewed branch
 into `dev`, remediate the JavaScript build-tool audit on a separate fix branch, then promote the
 verified `dev` head to `main` without creating a stable tag or release.
 
@@ -25,8 +26,8 @@ verified `dev` head to `main` without creating a stable tag or release.
 
 ### Out of scope
 
-- Changing the QAM title `Achievements Restored`.
-- Changing `plugin.json` or `package.json` canonical `name` fields.
+- Changing the Decky list/QAM display title `Achievements Restored` to another value.
+- Changing the canonical `package.json` name, distribution archive/root, or installed directory.
 - Creating or pushing any `v*` tag or publishing a stable release.
 - Modifying `orchestration.conf.local`, force-pushing, or changing sibling repositories.
 
@@ -36,8 +37,8 @@ verified `dev` head to `main` without creating a stable tag or release.
    live Deck plugin/settings/installer layout.
 2. Rename the Desktop bundle, launcher, and extracted helper directory to
    `Decky-SteamAchievements`; update the launch path and installer prose; rebuild the archive.
-3. Replace non-QAM uses of the old product title in current source and documentation. Historical
-   records may mention it only when explicitly describing the QAM title or superseded behavior.
+3. Keep product/documentation/distribution references canonical while using the display title only
+   for `plugin.json`, the Decky list/QAM frontend constants, and explicit identity documentation.
 4. Add automated identity and installer-archive assertions so future drift fails locally and in
    CI.
 5. Package and deploy the feature build. Preserve the live old-name plugin and settings as
@@ -67,8 +68,8 @@ verified `dev` head to `main` without creating a stable tag or release.
 - `npm run package` followed by `python3 scripts/validate_plugin_zip.py Decky-SteamAchievements.zip`
 - Inspect `installer/Decky-SteamAchievements Installer.zip` to require exactly the canonical
   launcher/helper paths and byte parity with their sources.
-- A tracked-text identity check must reject any literal `Achievements Restored` outside the QAM
-  title and text that explicitly documents that QAM title.
+- A tracked-text identity check must reject `Achievements Restored` outside `plugin.json`, the
+  Decky list/QAM frontend constants, and text that explicitly documents those display surfaces.
 
 ### Live feature gates
 

@@ -177,7 +177,8 @@ fi
 
 if ! python3 scripts/validate_plugin_zip.py \
   "$archive" \
-  --expected-name Decky-SteamAchievements \
+  --expected-root Decky-SteamAchievements \
+  --expected-name "Achievements Restored" \
   --expected-version "$version"; then
   echo "release-preconditions: package validation failed" >&2
   exit 1

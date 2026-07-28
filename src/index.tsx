@@ -19,7 +19,7 @@ import { AchievementFeatureController } from "./featureController";
 import { SettingsCoordinator } from "./settingsCoordinator";
 import * as log from "./log";
 
-const PLUGIN_NAME = "Decky-SteamAchievements";
+const PLUGIN_NAME = "Achievements Restored";
 const QAM_TITLE = "Achievements Restored";
 const DEFAULT_SETTINGS: PluginSettings = {
   feature_enabled: true,

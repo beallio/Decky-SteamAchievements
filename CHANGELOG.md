@@ -30,8 +30,9 @@ Initial development release.
 ### Changed
 
 - Canonical plugin identity pinned to `Decky-SteamAchievements` (the repository name) in
-  `plugin.json` and `package.json`, with `Achievements Restored` retained only as the QAM title.
+  `package.json` and the distribution archive/install path, while `plugin.json` uses
+  `Achievements Restored` for Decky's plugin list and QAM title.
   The contract is documented in `AGENTS.md`.
 - On-device install directory is now `~/homebrew/plugins/Decky-SteamAchievements/`, and the
-  packaged release asset is `Decky-SteamAchievements.zip`. Both are derived from `plugin.json`
-  `name` by `scripts/package.mjs`.
+  packaged release asset is `Decky-SteamAchievements.zip`. `scripts/package.mjs` fixes both to
+  the distribution identity independently of the display name in `plugin.json`.

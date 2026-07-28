@@ -30,6 +30,11 @@ def test_distribution_contract_is_canonical_and_stable(installer_module):
         "https://github.com/beallio/Decky-SteamAchievements"
     )
     assert installer_module.DISTRIBUTION_ASSET == "Decky-SteamAchievements.zip"
+    assert installer_module.DISTRIBUTION_FOLDER == "Decky-SteamAchievements"
+    assert installer_module.DISTRIBUTION_PLUGIN_NAME == "Achievements Restored"
+    assert installer_module.DISTRIBUTION_LEGACY_PLUGIN_NAMES == (
+        "Decky-SteamAchievements",
+    )
     assert installer_module.DISTRIBUTION_RELEASE_TAG == ""
     assert installer_module.DISTRIBUTION_INCLUDE_PRERELEASE is False
 
@@ -71,7 +76,7 @@ def test_default_github_resolution_uses_latest_stable_endpoint(
     assert resolved.expected_sha256 == "a" * 64
 
 
-def test_existing_plugin_is_selected_by_manifest_identity(
+def test_existing_plugin_is_selected_by_current_or_legacy_manifest_identity(
     installer_module, tmp_path: Path
 ):
     old_directory = tmp_path / "old-display-directory"
@@ -85,9 +90,62 @@ def test_existing_plugin_is_selected_by_manifest_identity(
         json.dumps({"name": "DifferentPlugin"}), encoding="utf-8"
     )
 
+    package = installer_module.PluginPackage(
+        folder="Decky-SteamAchievements",
+        name="Achievements Restored",
+        root_plugin=False,
+        staged_path=tmp_path / "stage",
+        remote_binaries=(),
+    )
+    aliases = installer_module.identity_aliases(package)
+
+    assert aliases == ("Decky-SteamAchievements",)
     assert installer_module.find_existing_plugin(
-        tmp_path, "Decky-SteamAchievements"
+        tmp_path, package.name, aliases
     ) == old_directory
+
+
+def test_plugin_order_migrates_legacy_name_without_duplicate(
+    installer_module, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    settings_file = tmp_path / "loader.json"
+    settings_file.write_text(
+        json.dumps(
+            {
+                "pluginOrder": [
+                    "CheatDeck",
+                    "Decky-SteamAchievements",
+                    "Achievements Restored",
+                    "Storage Cleaner",
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    written: dict[str, object] = {}
+    monkeypatch.setattr(
+        installer_module,
+        "stat_maybe_sudo",
+        lambda _path: (0o600, 1000, 1000),
+    )
+
+    def capture(source, _destination, **_kwargs):
+        written.update(json.loads(source.read_text(encoding="utf-8")))
+
+    monkeypatch.setattr(installer_module, "atomic_privileged_replace", capture)
+
+    installer_module.update_plugin_order(
+        settings_file,
+        "Achievements Restored",
+        tmp_path,
+        ("Decky-SteamAchievements",),
+    )
+
+    assert written["pluginOrder"] == [
+        "CheatDeck",
+        "Achievements Restored",
+        "Storage Cleaner",
+    ]
 
 
 def test_rollback_restores_plugin_settings_and_service(

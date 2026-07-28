@@ -91,27 +91,27 @@ Authoritative background: `HANDOFF.md` (root cause, live-verified) and
   asset aligned with the release workflow. The installer bundle name is a
   display artifact and deliberately differs from the canonical plugin ZIP.
 
-## Plugin identity — canonical vs QAM title
+## Plugin identity — distribution vs Decky display
 
 Two names, deliberately different. Do not "unify" them.
 
-- **Canonical: `Decky-SteamAchievements`** — matches the repository name. Lives in `plugin.json`
-  `name`, and lowercase-kebab in `package.json` (`decky-steamachievements`). This string is
-  load-bearing: `scripts/package.mjs` derives the packaged folder name and zip filename from
-  `plugin.json` `name`, Decky Loader keys the installed plugin directory
-  (`~/homebrew/plugins/Decky-SteamAchievements/`) off it, and any self-updater must pass it
-  verbatim to `install_plugin` to replace in place rather than installing a second copy.
-- **QAM title: `Achievements Restored`** — used only by `src/index.tsx` for `titleView`.
-  `definePlugin.name`, documentation, installer artifacts, backend logs, and internal namespaces
-  use the canonical name.
+- **Distribution: `Decky-SteamAchievements`** — matches the repository, ZIP filename, ZIP root,
+  installed directory, settings/runtime/log directory, installer artifacts, backend log namespace,
+  and release asset. Its npm spelling remains `decky-steamachievements`. These paths are
+  load-bearing for in-place updates and must stay stable.
+- **Decky display: `Achievements Restored`** — lives in `plugin.json` `name` and the frontend
+  registration/title constants. Decky Loader overwrites `definePlugin().name` with the manifest
+  name and renders that value in its plugin list; `titleView` uses the same display text for the
+  opened QAM panel.
 
-Changing the canonical name changes the on-device install directory and the release asset
-filename, and breaks in-place updates for anyone already running the plugin. Treat it as a
-breaking change, not a rename.
+Decky derives `DECKY_PLUGIN_SETTINGS_DIR`, runtime data, and logs from the archive/install folder,
+not `plugin.json.name`. `scripts/package.mjs` therefore fixes the archive root and asset name to
+`Decky-SteamAchievements` instead of deriving them from the display manifest. The Desktop
+installer recognizes the former canonical manifest name as a migration alias and replaces that
+installation in place.
 
-Note the sibling `Decky-Metadata` has these two out of sync — its `AGENTS.md` says the canonical
-name has no space while its shipped `plugin.json` has one. That is a known open issue there; do
-not copy its current state as a pattern.
+The installed `Storage Cleaner` plugin is the reference for this supported split: its folder is
+`decky-storage-cleaner` while its manifest/list name is `Storage Cleaner`.
 
 ## Release channels
 

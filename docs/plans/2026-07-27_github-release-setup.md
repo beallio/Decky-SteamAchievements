@@ -296,7 +296,8 @@ validator must check `package.json`'s `name` equals `decky-steamachievements`, n
 expectation to the malformed-archive verification cases so a ZIP carrying the wrong package name
 is proven to be rejected.
 
-Adapt its expectations to this repo: pass `--expected-name Decky-SteamAchievements` so the archive
+Adapt its expectations to this repo: pass `--expected-root Decky-SteamAchievements` and
+`--expected-name "Achievements Restored"` so the archive
 root is checked against the canonical identity. Replace the donor's required-file set with
 `LICENSE`, `main.py`, `package.json`, `plugin.json`, and `dist/index.js`; keep `NOTICE` and
 `dist/index.js.map` optional because `scripts/package.mjs` emits them only when present. Replace
@@ -629,7 +630,7 @@ If either `ls-remote` fails, stop — an unverifiable baseline makes checks 7 an
 4. **The package validator rejects bad archives.** Build with
    `node scripts/package.mjs --release --release-version 0.1.0 --emit-release-metadata`; confirm
    the three emitted assets exist and
-   `python3 scripts/validate_plugin_zip.py Decky-SteamAchievements.zip --expected-name Decky-SteamAchievements --expected-version 0.1.0`
+   `python3 scripts/validate_plugin_zip.py Decky-SteamAchievements.zip --expected-root Decky-SteamAchievements --expected-name "Achievements Restored" --expected-version 0.1.0`
    passes. Then build deliberately broken copies — wrong archive root, wrong `plugin.json` name,
    wrong `package.json` name, mismatched version — and invoke the validator with the same
    `--expected-name` and `--expected-version` flags, confirming a non-zero exit for **each**. A

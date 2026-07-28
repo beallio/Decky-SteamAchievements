@@ -5,14 +5,10 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
 
-// Derive the plugin identity from plugin.json so the packaged folder/zip always
-// match this plugin (never a hardcoded sibling name).
-const PLUGIN_FOLDER_NAME = JSON.parse(
-  fs.readFileSync(
-    path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "plugin.json"),
-    "utf8",
-  ),
-).name;
+// Decky treats plugin.json.name as the user-facing plugin identity, while the
+// archive root determines the installed directory. Keep the distribution name
+// stable so changing the list label cannot create a second on-device install.
+const PLUGIN_FOLDER_NAME = "Decky-SteamAchievements";
 const CRC_TABLE = makeCrcTable();
 
 // Mirrors the version grammar the self-updater parses (backend discovery):

@@ -1,5 +1,8 @@
 # Decky-SteamAchievements
 
+The distribution is named `Decky-SteamAchievements`; Decky's plugin list and opened QAM panel
+display the user-facing name `Achievements Restored`.
+
 A [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) plugin that
 **brings back the achievement progress bar Valve removed** from the Steam Deck
 game-details page — the compact **"ACHIEVEMENTS  n/total  ▮▮▯"** stat next to

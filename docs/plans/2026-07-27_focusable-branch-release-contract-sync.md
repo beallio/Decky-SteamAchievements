@@ -8,7 +8,7 @@ installer bundle on `feat/focusable-settings-versions-panel` into agreement with
 
 ## Scope
 
-- Preserve `Achievements Restored` only as the QAM title and keep canonical identity
+- Preserve `Achievements Restored` as Decky's list/QAM display identity and keep distribution identity
   `Decky-SteamAchievements` / `decky-steamachievements`.
 - Resolve the committed conflict markers in `AGENTS.md` while retaining both the runtime-feature
   guidance and the canonical identity contract.
