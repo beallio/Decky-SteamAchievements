@@ -1,12 +1,12 @@
-# Decky-SteamAchievements
-
-The distribution is named `Decky-SteamAchievements`; Decky's plugin list and opened QAM panel
-display the user-facing name `Achievements Restored`.
+# Achievements Restored - Restore SteamOS missing mini Achievements Bar
 
 A [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) plugin that
 **brings back the achievement progress bar Valve removed** from the Steam Deck
-game-details page — the compact **"ACHIEVEMENTS  n/total  ▮▮▯"** stat next to
-Play Time, with the blue completion ribbon at 100%.
+game-details page; the compact stat next to Play Time, with the blue completion ribbon at 100%:
+```
+ACHIEVEMENTS
+n/tot  ███▒▒▒
+```
 
 ![Restored achievement bar](assets/achievement-bar-restored.png)
 
