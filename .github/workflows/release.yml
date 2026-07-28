@@ -57,8 +57,8 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build stable release assets
-        id: package
+      - name: Resolve stable release identity
+        id: release
         env:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         shell: bash
@@ -71,13 +71,6 @@ jobs:
           }
           version="${tag#v}"
           candidate_sha="$(git rev-parse HEAD)"
-          node scripts/package.mjs \
-            --release \
-            --release-version "$version" \
-            --release-tag "$tag" \
-            --channel stable \
-            --emit-release-metadata
-          sha256sum -c "Decky-SteamAchievements-$tag.zip.sha256"
           python3 scripts/changelog.py extract "$version" > "$RUNNER_TEMP/release-notes.md"
           python3 scripts/changelog.py title "$version" > "$RUNNER_TEMP/release-title.txt"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -89,25 +82,62 @@ jobs:
         run: |
           set -euo pipefail
           scripts/check_release_preconditions.sh \
-            --tag "${{ steps.package.outputs.tag }}" \
-            --sha "${{ steps.package.outputs.sha }}" \
+            --tag "${{ steps.release.outputs.tag }}" \
+            --sha "${{ steps.release.outputs.sha }}" \
             --archive Decky-SteamAchievements.zip \
             --remote origin \
             --main-ref origin/main \
             --quality-gate scripts/orchestration-hooks/quality-gates
 
+      # The quality gate intentionally builds a hash-free ZIP. Generate the
+      # final ZIP, checksum, and manifest only after every mutating gate so the
+      # three published assets cannot drift apart.
+      - name: Build stable release assets
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/package.mjs \
+            --release \
+            --release-version "$RELEASE_VERSION" \
+            --release-tag "$RELEASE_TAG" \
+            --channel stable \
+            --emit-release-metadata
+          sha256sum -c "Decky-SteamAchievements-$RELEASE_TAG.zip.sha256"
+          python3 scripts/validate_plugin_zip.py \
+            Decky-SteamAchievements.zip \
+            --expected-root Decky-SteamAchievements \
+            --expected-name "Achievements Restored" \
+            --expected-version "$RELEASE_VERSION"
+          python3 scripts/check_backend_archive_parity.py \
+            Decky-SteamAchievements.zip \
+            --project-root .
+
       - name: Publish stable GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.package.outputs.tag }}
+          TAG: ${{ steps.release.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
           title="$(< "$RUNNER_TEMP/release-title.txt")"
-          gh release create "$TAG" \
-            Decky-SteamAchievements.zip \
-            "Decky-SteamAchievements-$TAG.zip.sha256" \
-            "Decky-SteamAchievements-$TAG.manifest.json" \
-            --verify-tag \
-            --title "$title" \
-            --notes-file "$RUNNER_TEMP/release-notes.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              Decky-SteamAchievements.zip \
+              "Decky-SteamAchievements-$TAG.zip.sha256" \
+              "Decky-SteamAchievements-$TAG.manifest.json" \
+              --clobber
+            gh release edit "$TAG" \
+              --title "$title" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          else
+            gh release create "$TAG" \
+              Decky-SteamAchievements.zip \
+              "Decky-SteamAchievements-$TAG.zip.sha256" \
+              "Decky-SteamAchievements-$TAG.manifest.json" \
+              --verify-tag \
+              --title "$title" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi

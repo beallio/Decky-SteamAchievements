@@ -10,6 +10,15 @@ Release entries are curated by hand and dated. A release must not be cut against
 
 ## [Unreleased]
 
+Release publication reliability improvements.
+
+### Fixed
+
+- Build stable ZIP, checksum, and manifest assets only after every mutating quality gate so
+  their hashes cannot drift before upload.
+- Allow the immutable-tag recovery workflow to replace an existing release's assets and notes
+  without moving or deleting the permanent tag.
+
 ## [0.2.0] - 2026-07-28
 
 Adds a complete, gamepad-first self-updater and hardened Decky Python packaging.
