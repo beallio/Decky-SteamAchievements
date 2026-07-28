@@ -25,14 +25,14 @@ export PYTHONPYCACHEPREFIX="$TMPDIR/__pycache__"
 export UV_CACHE_DIR="$TMPDIR/.uv"
 mkdir -p "$TMPDIR" "$XDG_CACHE_HOME" "$npm_config_cache" "$PYTHONPYCACHEPREFIX" "$UV_CACHE_DIR"
 
+# --- source metadata agreement ---------------------------------------------
+python_bin="$(command -v python3 || command -v python)"
+"$python_bin" scripts/check_source_metadata.py
+
 # --- frontend: type-check + build -------------------------------------------
 if [[ -f package.json ]]; then
   if [[ ! -d node_modules ]]; then
-    if command -v pnpm >/dev/null 2>&1; then
-      pnpm install --frozen-lockfile
-    else
-      npm ci
-    fi
+    npm ci
   fi
 
   # Type-check without emitting, then run the real rollup build.
@@ -46,7 +46,6 @@ fi
 
 # --- backend: Python syntax check -------------------------------------------
 if [[ -f main.py ]]; then
-  python_bin="$(command -v python3 || command -v python)"
   "$python_bin" -m py_compile main.py
   if [[ -d backend ]]; then
     # -r/--no-run-if-empty: an empty backend/ must be a no-op, not a py_compile
@@ -67,7 +66,6 @@ fi
 
 # --- release version drift guard --------------------------------------------
 if [[ -f package.json && -f scripts/version_guard.py ]]; then
-  python_bin="$(command -v python3 || command -v python)"
   base_version="$("$python_bin" -c 'import json; print(json.load(open("package.json", encoding="utf-8"))["version"])')"
   "$python_bin" scripts/version_guard.py check-drift "$base_version"
 fi
