@@ -37,6 +37,17 @@ against the base `package.json` version.
   `/tmp/Decky-SteamAchievements/fix-decky-python-module-packaging-red.log`.
 - GREEN: the same targeted file passed `8 passed` after the validator and
   packaging changes.
+- REVIEW ROUND 01 RED:
+  `UV_CACHE_DIR=/tmp/Decky-SteamAchievements/.uv uv run --with pytest -- pytest -q tests/test_check_backend_archive_parity.py tests/test_release_workflows.py`
+  failed during collection because the repository-aware parity checker did not
+  exist. Output is retained at
+  `/tmp/Decky-SteamAchievements/fix-decky-python-module-packaging-review-01-red.log`.
+- REVIEW ROUND 01 GREEN: the same targeted command passed `12 passed`. The four
+  new parity cases cover complete, missing, extra, and duplicate backend-module
+  mappings. Release-workflow assertions prove rolling and immutable development
+  publication validate their ZIPs with the computed development version before
+  publishing, while stable publication calls the preconditions script before
+  publishing and that script validates the ZIP with the stable tag version.
 - The first baseline gate also found that the new plan's original device-smoke
   sentence did not qualify the display identity with a Decky UI surface. The
   wording was corrected to name the Decky QAM panel without changing the plan's
@@ -48,9 +59,12 @@ against the base `package.json` version.
   - source metadata, identity, and installer bundle checks passed;
   - TypeScript and Rollup build passed;
   - Vitest: 8 files and 100 tests passed;
-  - Pytest: 85 tests passed, including release-workflow and ZIP-validator
-    contracts;
+  - Pytest: 89 tests passed, including release-workflow, ZIP-validator, and
+    repository-to-archive backend parity contracts;
   - hash-free package `0.1.1` passed the stricter validator;
+  - the automated parity gate confirmed that the package contains every
+    repository `backend/**/*.py` source exactly once, with no missing, extra,
+    or duplicate first-party module;
   - review-note deletion check passed.
 - `git diff --check`: passed.
 - Exact device artifact version: `0.1.1+3bd0475`.
@@ -62,6 +76,11 @@ against the base `package.json` version.
 - The validator accepted the exact ZIP at version `0.1.1+3bd0475`.
 - Source-to-archive comparison found all 10 repository backend Python modules
   exactly once, no duplicate ZIP member, and no root `backend/` member.
+- Review round 01 changed only tests, the repository-aware parity checker, the
+  routine quality gate, and this validation record. Package inputs and archive
+  mapping did not change, so the previously installed exact device artifact and
+  SHA-256 remain the acceptance artifact and no repeat Deck installation was
+  performed.
 
 The exact ZIP member list was:
 
