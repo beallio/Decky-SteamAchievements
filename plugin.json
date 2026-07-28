@@ -13,5 +13,5 @@
     "description": "Restores the achievement progress bar Valve removed from the Steam Deck game-details page (the \"ACHIEVEMENTS n/total\" bar next to Play Time).",
     "image": "https://raw.githubusercontent.com/beallio/Decky-SteamAchievements/main/assets/achievement-bar-restored.png"
   },
-  "version": "0.1.1"
+  "version": "0.2.0"
 }

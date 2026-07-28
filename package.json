@@ -1,6 +1,6 @@
 {
   "name": "decky-steamachievements",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Restores the achievement progress bar Valve removed from the Steam Deck game-details page.",
   "type": "module",
   "scripts": {
