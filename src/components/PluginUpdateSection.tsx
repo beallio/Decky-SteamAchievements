@@ -117,6 +117,7 @@ export function PluginUpdateSection({
 
   const isLocalBuild = effectiveCurrentVersion.includes("+");
   const isDeckyAvailable = isDeckyInstallerAvailable();
+  const installBusy = isInstalling || isHandoffPending;
 
   const getActionText = (c: PluginUpdateCandidate) => {
     switch (c.action) {
@@ -249,10 +250,10 @@ export function PluginUpdateSection({
               layout="below"
               highlightOnFocus={true}
               onClick={() => handleInstallClick(candidate)}
-              disabled={isChecking || isInstalling}
+              disabled={isChecking || installBusy}
             >
               <div style={buttonRowStyle}>
-                {isInstalling ? (
+                {installBusy ? (
                   <>
                     <div style={spinnerSlotStyle}>
                       <Spinner size="small" style={{ color: "#1a9fff" }} />
@@ -286,7 +287,7 @@ export function PluginUpdateSection({
             layout="below"
             highlightOnFocus={true}
             onClick={() => checkNow()}
-            disabled={isChecking || isInstalling}
+            disabled={isChecking || installBusy}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
               {isChecking ? (

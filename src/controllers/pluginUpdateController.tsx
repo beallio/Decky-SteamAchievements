@@ -77,6 +77,7 @@ export function usePluginUpdateController({
   const checkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipInitialCheck = useRef(false);
   const automaticCheckToggleHydrated = useRef(false);
+  const active = useRef(true);
 
   const isHydrated = state.phase !== "hydrating";
 
@@ -98,6 +99,9 @@ export function usePluginUpdateController({
 
   const checkForUpdates = useCallback(
     async (opts: { force: boolean; notify: boolean; source: "automatic" | "manual" }) => {
+      if (!active.current) {
+        return;
+      }
       if (!effectiveCurrentVersion || effectiveCurrentVersion === "Loading...") {
         return;
       }
@@ -120,7 +124,7 @@ export function usePluginUpdateController({
 
         clearCheckTimeout();
         checkTimeoutRef.current = setTimeout(() => {
-          if (activeCheckId.current === checkId) {
+          if (active.current && activeCheckId.current === checkId) {
             activeCheckId.current += 1;
             inFlightCheck.current = null;
             dispatch({ type: "CHECK_TIMEOUT", message: "Update check interrupted. Check again." });
@@ -205,6 +209,7 @@ export function usePluginUpdateController({
 
   const handleHandoffSuccess = useCallback(
     async (version: string, channel: UpdateChannel, traceId: string, handoffStart: number) => {
+      if (!active.current) return;
       activeCheckId.current += 1;
       clearCheckTimeout();
       inFlightCheck.current = null;
@@ -243,7 +248,11 @@ export function usePluginUpdateController({
   }, [currentVersion, state.installedOverride]);
 
   useEffect(() => {
+    active.current = true;
     return () => {
+      active.current = false;
+      activeCheckId.current += 1;
+      inFlightCheck.current = null;
       clearCheckTimeout();
     };
   }, [clearCheckTimeout]);
@@ -394,8 +403,6 @@ export function usePluginUpdateController({
       activeCheckId.current += 1;
       clearCheckTimeout();
       inFlightCheck.current = null;
-      dispatch({ type: "INSTALL_SUCCESS", version: revalRes.version, channel: revalRes.channel as UpdateChannel, preInstallVersion: currentVersion });
-
       const handoffStart = performance.now();
       logUpdate(updateTraceId, "handoff_start", {
         version: revalRes.version,
@@ -403,9 +410,11 @@ export function usePluginUpdateController({
       });
 
       let handoffTimerFired = false;
+      let handoffTimerHandle: ReturnType<typeof setTimeout> | null = null;
       const handoffTimer = new Promise<void>((resolve) => {
-        setTimeout(() => {
+        handoffTimerHandle = setTimeout(() => {
           handoffTimerFired = true;
+          handoffTimerHandle = null;
           resolve();
         }, 3000);
       });
@@ -419,6 +428,11 @@ export function usePluginUpdateController({
       );
 
       await Promise.race([installerPromise, handoffTimer]);
+      if (handoffTimerHandle !== null) {
+        clearTimeout(handoffTimerHandle);
+        handoffTimerHandle = null;
+      }
+      if (!active.current) return;
 
       if (handoffTimerFired) {
         logUpdate(updateTraceId, "handoff_pending", { status: "installer_handoff_pending", elapsed_ms: Math.round(performance.now() - handoffStart) });
@@ -439,6 +453,7 @@ export function usePluginUpdateController({
                 const clearMsg = clearErr instanceof Error ? clearErr.message : String(clearErr);
                 logUpdate(updateTraceId, "pending_clear_failed", { message: clearMsg });
               }
+              if (!active.current) return;
               void checkForUpdates({ force: false, notify: false, source: "automatic" });
               dispatch({ type: "INSTALL_FAILED", message: msg });
               toaster.toast({
@@ -463,6 +478,7 @@ export function usePluginUpdateController({
         const clearMsg = clearErr instanceof Error ? clearErr.message : String(clearErr);
         logUpdate(updateTraceId, "pending_clear_failed", { message: clearMsg });
       }
+      if (!active.current) return;
       void checkForUpdates({ force: false, notify: false, source: "automatic" });
       dispatch({ type: "INSTALL_FAILED", message: msg });
       toaster.toast({

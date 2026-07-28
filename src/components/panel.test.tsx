@@ -255,6 +255,34 @@ describe("focusable QAM sections", () => {
     updateController.errorMessage = null;
   });
 
+  it("keeps the candidate action visible while waiting for Decky", () => {
+    updateController.candidate = {
+      version: "0.2.0",
+      tag: "v0.2.0",
+      channel: "stable",
+      artifact_url: "https://example/plugin.zip",
+      sha256: "a".repeat(64),
+      release_url: "https://example/release",
+      published_at: "2026-07-28T00:00:00Z",
+      action: "update",
+    };
+    updateController.isHandoffPending = true;
+    const tree = PluginUpdateSection({
+      currentVersion: "0.1.1",
+      updateChannel: "stable",
+      automaticUpdateChecks: true,
+      settingsLoaded: true,
+      updateChannelBusy: false,
+      automaticChecksBusy: false,
+      onToggleUpdateChannel: vi.fn(),
+      onToggleAutomaticUpdateChecks: vi.fn(),
+    });
+    expect(JSON.stringify(tree)).toContain("Waiting for Decky...");
+    expect(collect(tree, "ButtonItem")[0].props.disabled).toBe(true);
+    updateController.candidate = null;
+    updateController.isHandoffPending = false;
+  });
+
   it("wraps content in a preferred focus navigation group", () => {
     const tree = FocusablePanel({ children: "content" });
     expect(tree.type).toBe("Focusable");

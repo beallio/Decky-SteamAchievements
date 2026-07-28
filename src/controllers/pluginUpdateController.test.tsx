@@ -158,6 +158,11 @@ describe("PluginUpdateController", () => {
     expect(ludusaviRpc.recordUpdateInstallRequestedCall).toHaveBeenCalled();
     expect(deckyInstaller.invokeDeckyInstaller).toHaveBeenCalled();
     expect(ludusaviRpc.confirmUpdateInstallHandoffCall).toHaveBeenCalled();
+    expect(
+      vi.mocked(ludusaviRpc.recordUpdateInstallRequestedCall).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(deckyInstaller.invokeDeckyInstaller).mock.invocationCallOrder[0],
+    );
 
     stateIdx = 0;
     const updatedController = usePluginUpdateController({
@@ -282,6 +287,39 @@ describe("PluginUpdateController", () => {
     // If the fix is correct (using isHydrated instead of state.phase), the deps will be identical.
     expect(depsAfter).toEqual(depsBefore);
   });
+
+  it("suppresses a late check result after unmount cleanup", async () => {
+    let resolveCheck!: (value: any) => void;
+    vi.mocked(ludusaviRpc.checkForPluginUpdateCall).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    const controller = usePluginUpdateController({
+      currentVersion: "0.1.0",
+      updateChannel: "stable",
+      automaticUpdateChecks: false,
+    });
+    const checking = controller.checkNow();
+    await Promise.resolve();
+    const cleanup = activeEffects[1].cb();
+    cleanup();
+    resolveCheck({
+      status: "available",
+      checked_at: "now",
+      candidate: { version: "0.2.0" },
+    });
+    await checking;
+
+    stateIdx = 0;
+    activeEffects.length = 0;
+    const after = usePluginUpdateController({
+      currentVersion: "0.1.0",
+      updateChannel: "stable",
+      automaticUpdateChecks: false,
+    });
+    expect(after.candidate).toBe(null);
+  });
 });
 
 import { updateReducer, initialUpdateState, UpdateState } from "./pluginUpdateReducer";
@@ -334,4 +372,3 @@ describe("pluginUpdateReducer", () => {
     expect(newState.installedOverride).toBe(null);
   });
 });
-
