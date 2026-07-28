@@ -10,6 +10,11 @@ Release entries are curated by hand and dated. A release must not be cut against
 
 ## [Unreleased]
 
+### Fixed
+
+- Returning controller focus from the bottom of the QAM panel now restores the outer scroll
+  position after Steam's delayed focus scroll, keeping the title and full description visible.
+
 ## [0.1.0] - 2026-07-27
 
 Initial development release.
