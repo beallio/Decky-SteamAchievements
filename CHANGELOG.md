@@ -36,3 +36,5 @@ Initial development release.
 - On-device install directory is now `~/homebrew/plugins/Decky-SteamAchievements/`, and the
   packaged release asset is `Decky-SteamAchievements.zip`. `scripts/package.mjs` fixes both to
   the distribution identity independently of the display name in `plugin.json`.
+- Replaced the vulnerable `@decky/rollup` build preset with an equivalent direct Rollup
+  configuration; production bundle and sourcemap output remain byte-for-byte identical.
