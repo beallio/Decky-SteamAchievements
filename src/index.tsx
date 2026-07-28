@@ -16,22 +16,22 @@ import { VersionsSection } from "./components/VersionsSection";
 import { FocusablePanel } from "./components/FocusablePanel";
 import { DescriptionSection } from "./components/DescriptionSection";
 import { AchievementFeatureController } from "./featureController";
+import { SettingsCoordinator } from "./settingsCoordinator";
 import * as log from "./log";
 
-const PLUGIN_NAME = "Achievements Restored";
+const PLUGIN_NAME = "Decky-SteamAchievements";
+const QAM_TITLE = "Achievements Restored";
 const DEFAULT_SETTINGS: PluginSettings = {
   feature_enabled: true,
   debug_logging: false,
 };
 const EMPTY_VERSIONS: Versions = { plugin: "", decky: "", steamos: "" };
 
-function Content({ controller }: { controller: AchievementFeatureController }) {
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+function Content({ coordinator }: { coordinator: SettingsCoordinator }) {
+  const [runtime, setRuntime] = useState(coordinator.snapshot);
   const [versions, setVersions] = useState(EMPTY_VERSIONS);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [featureBusy, setFeatureBusy] = useState(false);
-  const [debugBusy, setDebugBusy] = useState(false);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
+  const { settings, loaded: settingsLoaded, featureBusy, debugBusy } = runtime;
 
   useEffect(() => {
     let firstFrame = 0;
@@ -70,23 +70,12 @@ function Content({ controller }: { controller: AchievementFeatureController }) {
   }, []);
 
   useEffect(() => {
+    const unsubscribe = coordinator.subscribe(setRuntime);
+    return unsubscribe;
+  }, [coordinator]);
+
+  useEffect(() => {
     let cancelled = false;
-    // Decky unmounts plugin content whenever QAM closes. Read the backend again
-    // on each mount so the controls reflect the persisted values, not the
-    // snapshot from plugin startup.
-    void getSettings()
-      .then((loaded) => {
-        if (cancelled) return;
-        setSettings(loaded);
-        log.setVerboseLogging(loaded.debug_logging);
-        controller.setEnabled(loaded.feature_enabled);
-        setSettingsLoaded(true);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        log.warn("settings", "settings reload failed; using defaults", error);
-        setSettingsLoaded(true);
-      });
     void getVersions()
       .then((loaded) => {
         if (!cancelled) setVersions(loaded);
@@ -95,46 +84,14 @@ function Content({ controller }: { controller: AchievementFeatureController }) {
     return () => {
       cancelled = true;
     };
-  }, [controller]);
+  }, []);
 
   const saveFeature = async (enabled: boolean) => {
-    if (featureBusy) return;
-    const previous = settings;
-    if (!controller.setEnabled(enabled)) return;
-    setFeatureBusy(true);
-    setSettings({ ...settings, feature_enabled: enabled });
-    try {
-      const saved = await setFeatureEnabled(enabled);
-      setSettings(saved);
-      controller.setEnabled(saved.feature_enabled);
-      log.setVerboseLogging(saved.debug_logging);
-    } catch (error) {
-      setSettings(previous);
-      controller.setEnabled(previous.feature_enabled);
-      log.warn("settings", "feature setting save failed", error);
-    } finally {
-      setFeatureBusy(false);
-    }
+    await coordinator.setFeatureEnabled(enabled);
   };
 
   const saveDebug = async (enabled: boolean) => {
-    if (debugBusy) return;
-    const previous = settings;
-    setDebugBusy(true);
-    setSettings({ ...settings, debug_logging: enabled });
-    log.setVerboseLogging(enabled);
-    try {
-      const saved = await setDebugLogging(enabled);
-      setSettings(saved);
-      log.setVerboseLogging(saved.debug_logging);
-      controller.setEnabled(saved.feature_enabled);
-    } catch (error) {
-      setSettings(previous);
-      log.setVerboseLogging(previous.debug_logging);
-      log.warn("settings", "debug setting save failed", error);
-    } finally {
-      setDebugBusy(false);
-    }
+    await coordinator.setDebugLogging(enabled);
   };
 
   return (
@@ -156,29 +113,30 @@ function Content({ controller }: { controller: AchievementFeatureController }) {
 
 export default definePlugin(() => {
   log.info("plugin", "loaded");
-  let active = true;
   const controller = new AchievementFeatureController(
     installAchievementBarPatch,
     (error) => log.error("plugin", "achievement patch lifecycle failed", error),
   );
-  const initialSettings = getSettings().catch((error) => {
-    log.warn("settings", "settings load failed; using defaults", error);
-    return DEFAULT_SETTINGS;
+  const coordinator = new SettingsCoordinator({
+    controller,
+    defaults: DEFAULT_SETTINGS,
+    loadSettings: getSettings,
+    setFeatureEnabled,
+    setDebugLogging,
+    setVerboseLogging: log.setVerboseLogging,
+    onError(operation, error) {
+      log.warn("settings", `${operation} setting operation failed`, error);
+    },
   });
-  void initialSettings.then((loaded) => {
-    if (!active) return;
-    log.setVerboseLogging(loaded.debug_logging);
-    controller.setEnabled(loaded.feature_enabled);
-  });
+  coordinator.start();
 
   return {
     name: PLUGIN_NAME,
-    titleView: <div className={staticClasses.Title}>{PLUGIN_NAME}</div>,
-    content: <Content controller={controller} />,
+    titleView: <div className={staticClasses.Title}>{QAM_TITLE}</div>,
+    content: <Content coordinator={coordinator} />,
     icon: <FaTrophy />,
     onDismount() {
-      active = false;
-      controller.dispose();
+      coordinator.dispose();
     },
   };
 });

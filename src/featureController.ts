@@ -1,5 +1,6 @@
 export class AchievementFeatureController {
   private disposer: (() => void) | undefined;
+  private disposed = false;
 
   constructor(
     private readonly installer: () => () => void,
@@ -11,6 +12,7 @@ export class AchievementFeatureController {
   }
 
   setEnabled(enabled: boolean): boolean {
+    if (this.disposed) return !enabled;
     if (enabled === this.enabled) return true;
     if (enabled) {
       try {
@@ -35,6 +37,11 @@ export class AchievementFeatureController {
   }
 
   dispose(): void {
-    this.setEnabled(false);
+    if (this.disposed) return;
+    try {
+      this.setEnabled(false);
+    } finally {
+      this.disposed = true;
+    }
   }
 }

@@ -42,4 +42,18 @@ describe("AchievementFeatureController", () => {
     expect(disposing.enabled).toBe(false);
     expect(onError).toHaveBeenCalledTimes(2);
   });
+
+  it("makes disposal terminal so late async work cannot reinstall the patch", () => {
+    const disposePatch = vi.fn();
+    const installer = vi.fn(() => disposePatch);
+    const controller = new AchievementFeatureController(installer);
+
+    expect(controller.setEnabled(true)).toBe(true);
+    controller.dispose();
+
+    expect(controller.setEnabled(true)).toBe(false);
+    expect(controller.enabled).toBe(false);
+    expect(installer).toHaveBeenCalledOnce();
+    expect(disposePatch).toHaveBeenCalledOnce();
+  });
 });
