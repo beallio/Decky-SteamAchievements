@@ -329,15 +329,28 @@ export function restoreInstance(instance: any): (() => void) | undefined {
       if (cleaned) return;
       cleaned = true;
       try {
-        if (originalDescriptor && !("value" in originalDescriptor)) {
-          Object.defineProperty(instance, "props", originalDescriptor);
-        } else {
+        if (originalDescriptor && "value" in originalDescriptor) {
           Object.defineProperty(instance, "props", {
-            configurable: originalDescriptor?.configurable ?? true,
-            enumerable: originalDescriptor?.enumerable ?? true,
-            writable: originalDescriptor?.writable ?? true,
+            ...originalDescriptor,
             value: rawProps,
           });
+        } else if (originalDescriptor) {
+          Object.defineProperty(instance, "props", originalDescriptor);
+          originalDescriptor.set?.call(instance, rawProps);
+        } else {
+          delete instance.props;
+          let prototype = Object.getPrototypeOf(instance);
+          while (prototype) {
+            const inheritedDescriptor = Object.getOwnPropertyDescriptor(
+              prototype,
+              "props",
+            );
+            if (inheritedDescriptor) {
+              inheritedDescriptor.set?.call(instance, rawProps);
+              break;
+            }
+            prototype = Object.getPrototypeOf(prototype);
+          }
         }
         delete instance[INSTANCE_PATCH_FLAG];
         setTimeout(() => {
