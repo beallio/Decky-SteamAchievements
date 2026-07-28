@@ -1,18 +1,45 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@decky/ui", () => ({
+  ButtonItem: "ButtonItem",
+  ConfirmModal: "ConfirmModal",
   Field: "Field",
   Focusable: "Focusable",
   NavEntryPositionPreferences: { PREFERRED_CHILD: 7 },
+  Navigation: { NavigateToExternalWeb: vi.fn() },
   PanelSection: "PanelSection",
   PanelSectionRow: "PanelSectionRow",
+  showModal: vi.fn(),
+  Spinner: "Spinner",
   ToggleField: "ToggleField",
+}));
+
+const updateController = vi.hoisted(() => ({
+  effectiveCurrentVersion: "0.1.1+local",
+  candidate: null as any,
+  checkResult: null as any,
+  errorMessage: null as string | null,
+  isChecking: false,
+  isInstalling: false,
+  isHandoffPending: false,
+  installedReleasePublishedAt: null as string | null,
+  checkNow: vi.fn(async () => undefined),
+  install: vi.fn(async () => undefined),
+}));
+
+vi.mock("../controllers/pluginUpdateController", () => ({
+  usePluginUpdateController: () => updateController,
+}));
+vi.mock("../utils/deckyInstaller", () => ({
+  isDeckyInstallerAvailable: () => true,
 }));
 
 import { FocusablePanel } from "./FocusablePanel";
 import { DescriptionSection } from "./DescriptionSection";
 import { SettingsSection } from "./SettingsSection";
 import { VersionsSection } from "./VersionsSection";
+import { PluginUpdateSection } from "./PluginUpdateSection";
+import { PluginPanelContent } from "./PluginPanelContent";
 
 function collect(node: any, type: string, found: any[] = []): any[] {
   if (node == null || typeof node === "boolean") return found;
@@ -155,10 +182,112 @@ describe("focusable QAM sections", () => {
     expect(fields[0].props.children.props.children).toBe("Unknown");
   });
 
+  it("renders the Updates rows in donor order with gamepad focus", () => {
+    const tree = PluginUpdateSection({
+      currentVersion: "0.1.1",
+      updateChannel: "stable",
+      automaticUpdateChecks: true,
+      settingsLoaded: true,
+      updateChannelBusy: false,
+      automaticChecksBusy: false,
+      onToggleUpdateChannel: vi.fn(),
+      onToggleAutomaticUpdateChecks: vi.fn(),
+    });
+    const fields = collect(tree, "Field");
+    const toggles = collect(tree, "ToggleField");
+    const buttons = collect(tree, "ButtonItem");
+    expect(tree.props.title).toBe("Updates");
+    expect(fields.map((entry) => entry.props.label)).toEqual([
+      "Installed Version",
+      "Status",
+    ]);
+    expect(fields.every((entry) => entry.props.focusable === true)).toBe(true);
+    expect(fields.every((entry) => entry.props.highlightOnFocus === true)).toBe(true);
+    expect(toggles.map((entry) => entry.props.label)).toEqual([
+      "Receive development releases",
+      "Automatically check for updates",
+    ]);
+    expect(toggles.every((entry) => entry.props.highlightOnFocus === true)).toBe(true);
+    expect(buttons.map((entry) => JSON.stringify(entry.props.children))).toEqual([
+      expect.stringContaining("Check now"),
+    ]);
+    expect(JSON.stringify(tree)).toContain("(Local Build)");
+    expect(JSON.stringify(tree)).toContain("Never checked");
+  });
+
+  it("renders available and error details without changing action order", () => {
+    updateController.candidate = {
+      version: "0.2.0",
+      tag: "v0.2.0",
+      channel: "stable",
+      artifact_url: "https://example/plugin.zip",
+      sha256: "a".repeat(64),
+      release_url: "https://example/release",
+      published_at: "2026-07-28T00:00:00Z",
+      action: "update",
+    };
+    updateController.checkResult = {
+      status: "available",
+      checked_at: "2026-07-28T00:00:00Z",
+      candidate: updateController.candidate,
+    };
+    updateController.errorMessage = "fixture warning";
+    const tree = PluginUpdateSection({
+      currentVersion: "0.1.1",
+      updateChannel: "stable",
+      automaticUpdateChecks: true,
+      settingsLoaded: true,
+      updateChannelBusy: false,
+      automaticChecksBusy: false,
+      onToggleUpdateChannel: vi.fn(),
+      onToggleAutomaticUpdateChecks: vi.fn(),
+    });
+    const copy = JSON.stringify(tree);
+    expect(copy).toContain("fixture warning");
+    expect(copy).toContain("New version: v");
+    expect(collect(tree, "ButtonItem").map((entry) => JSON.stringify(entry.props.children))).toEqual([
+      expect.stringContaining("Update to v0.2.0"),
+      expect.stringContaining("View Release Notes"),
+      expect.stringContaining("Check now"),
+    ]);
+    updateController.candidate = null;
+    updateController.checkResult = null;
+    updateController.errorMessage = null;
+  });
+
   it("wraps content in a preferred focus navigation group", () => {
     const tree = FocusablePanel({ children: "content" });
     expect(tree.type).toBe("Focusable");
     expect(tree.props.preferredFocus).toBe(true);
     expect(tree.props["flow-children"]).toBe("down");
+  });
+
+  it("orders Description, Settings, Updates, then Versions", () => {
+    const tree = PluginPanelContent({
+      descriptionRef: { current: null },
+      settings: {
+        feature_enabled: true,
+        debug_logging: false,
+        update_channel: "stable",
+        automatic_update_checks: true,
+      },
+      settingsLoaded: true,
+      featureBusy: false,
+      debugBusy: false,
+      updateChannelBusy: false,
+      automaticChecksBusy: false,
+      versions: { plugin: "0.1.1", decky: "3.2.6", steamos: "3.8" },
+      onFeatureChange: vi.fn(),
+      onDebugChange: vi.fn(),
+      onUpdateChannelChange: vi.fn(),
+      onAutomaticChecksChange: vi.fn(),
+      onInstallVersionConfirmed: vi.fn(),
+    });
+    expect(tree.props.children.map((child: any) => child.type)).toEqual([
+      DescriptionSection,
+      SettingsSection,
+      PluginUpdateSection,
+      VersionsSection,
+    ]);
   });
 });

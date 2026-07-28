@@ -5,17 +5,16 @@ import { FaTrophy } from "react-icons/fa6";
 import {
   getSettings,
   getVersions,
+  setAutomaticUpdateChecksCall,
   setDebugLogging,
   setFeatureEnabled,
+  setUpdateChannelCall,
   type PluginSettings,
   type Versions,
 } from "./backend";
 import { installAchievementBarPatch } from "./achievementBar";
-import { SettingsSection } from "./components/SettingsSection";
-import { VersionsSection } from "./components/VersionsSection";
-import { FocusablePanel } from "./components/FocusablePanel";
+import { PluginPanelContent } from "./components/PluginPanelContent";
 import {
-  DescriptionSection,
   resetDescriptionScroll,
 } from "./components/DescriptionSection";
 import { AchievementFeatureController } from "./featureController";
@@ -36,7 +35,14 @@ function Content({ coordinator }: { coordinator: SettingsCoordinator }) {
   const [runtime, setRuntime] = useState(coordinator.snapshot);
   const [versions, setVersions] = useState(EMPTY_VERSIONS);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
-  const { settings, loaded: settingsLoaded, featureBusy, debugBusy } = runtime;
+  const {
+    settings,
+    loaded: settingsLoaded,
+    featureBusy,
+    debugBusy,
+    updateChannelBusy,
+    automaticChecksBusy,
+  } = runtime;
 
   useEffect(() => {
     let firstFrame = 0;
@@ -87,20 +93,28 @@ function Content({ coordinator }: { coordinator: SettingsCoordinator }) {
     await coordinator.setDebugLogging(enabled);
   };
 
+  const confirmInstalledPluginVersion = (version: string) => {
+    setVersions((current) => ({ ...current, plugin: version }));
+  };
+
   return (
-    <FocusablePanel>
-      <DescriptionSection focusRef={descriptionRef} />
-      <SettingsSection
-        featureEnabled={settings.feature_enabled}
-        debugLogging={settings.debug_logging}
-        settingsLoaded={settingsLoaded}
-        featureBusy={featureBusy}
-        debugBusy={debugBusy}
-        onFeatureChange={(enabled) => void saveFeature(enabled)}
-        onDebugChange={(enabled) => void saveDebug(enabled)}
-      />
-      <VersionsSection versions={versions} />
-    </FocusablePanel>
+    <PluginPanelContent
+      descriptionRef={descriptionRef}
+      settings={settings}
+      settingsLoaded={settingsLoaded}
+      featureBusy={featureBusy}
+      debugBusy={debugBusy}
+      updateChannelBusy={updateChannelBusy}
+      automaticChecksBusy={automaticChecksBusy}
+      versions={versions}
+      onFeatureChange={(enabled) => void saveFeature(enabled)}
+      onDebugChange={(enabled) => void saveDebug(enabled)}
+      onUpdateChannelChange={(channel) => void coordinator.setUpdateChannel(channel)}
+      onAutomaticChecksChange={(enabled) =>
+        void coordinator.setAutomaticUpdateChecks(enabled)
+      }
+      onInstallVersionConfirmed={confirmInstalledPluginVersion}
+    />
   );
 }
 
@@ -116,6 +130,8 @@ export default definePlugin(() => {
     loadSettings: getSettings,
     setFeatureEnabled,
     setDebugLogging,
+    setUpdateChannel: setUpdateChannelCall,
+    setAutomaticUpdateChecks: setAutomaticUpdateChecksCall,
     setVerboseLogging: log.setVerboseLogging,
     onError(operation, error) {
       log.warn("settings", `${operation} setting operation failed`, error);
