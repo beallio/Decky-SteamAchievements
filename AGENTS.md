@@ -10,16 +10,16 @@ own `MiniAchievements` component by supplying the `onSeek` prop its guard needs.
 Do **not** reimplement the bar unless a placement Valve's component can't reach
 is explicitly required.
 
-Authoritative background: `HANDOFF.md` (root cause, live-verified) and
-`research/diffs/removal_onSeek_guard.md` (the one-line diff + bisect).
+Authoritative background: `docs/deep-patch-notes.md` (root cause, one-line guard
+diff, live runtime constraints, failed approaches, and the shipped mechanism).
 
 ## Environment & scratch
 
 - `direnv allow` loads `.envrc`, which points all caches/scratch at
   `/tmp/Decky-SteamAchievements` (`TMPDIR`, `XDG_CACHE_HOME`, `npm_config_cache`,
   `PYTHONPYCACHEPREFIX`). Keep exploratory/large files there, never in the repo.
-- `research/` is gitignored; only curated reports under `research/reports` and
-  `research/diffs` are meant to persist.
+- `research/` is gitignored scratch. Put durable, clean-checkout guidance under
+  tracked `docs/` paths.
 
 ## Build / test
 

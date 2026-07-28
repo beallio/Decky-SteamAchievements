@@ -14,7 +14,7 @@ QAM settings, updater controls, and all three version rows must remain
 independently gamepad-focusable.
 
 The live-verified root cause and runtime constraints are documented in
-[`HANDOFF.md`](HANDOFF.md).
+[`docs/deep-patch-notes.md`](docs/deep-patch-notes.md).
 
 ## Environment
 

@@ -105,3 +105,19 @@ discovery against published fixtures, in-place Decky install/cancel behavior,
 background toast behavior with QAM closed, and live log privacy/failure
 observations. Record the Steam/Decky versions, installed/candidate versions,
 tag, and observations when those checks are authorized and run.
+
+## Review round 01
+
+- Added one shared bounded inter-process lock around every settings
+  read-modify-write. RED reproduced the lost-update race with two independent
+  plugin holders; GREEN proves a feature toggle and updater-channel mutation
+  both survive the forced overlap.
+- Hardened `scripts/request_dev_release.sh` to fail closed on the complete
+  porcelain worktree status, refresh `origin` branches and tags, and require the
+  selected commit to be contained by a refreshed remote branch before dispatch.
+  Executable temporary-repository tests went RED for an untracked file and a
+  clean local-only commit, then GREEN after the preflight changes.
+- Promoted `docs/deep-patch-notes.md` as the tracked authoritative achievement
+  handoff, added the confirmed guard/runtime summary, and replaced active links
+  to the deleted root handoff. The orchestrator-authored review note remains
+  unchanged as the audit record.
