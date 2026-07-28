@@ -10,7 +10,9 @@ export function resetDescriptionScroll(description: HTMLDivElement) {
       (overflowY === "auto" || overflowY === "scroll") &&
       ancestor.scrollHeight > ancestor.clientHeight
     ) {
-      ancestor.scrollTop = 0;
+      // Calling scrollTo cancels Steam's in-flight smooth nearest-scroll;
+      // assigning scrollTop does not reliably cancel that animation.
+      ancestor.scrollTo(0, 0);
       return;
     }
     ancestor = ancestor.parentElement;

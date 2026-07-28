@@ -55,6 +55,9 @@ describe("focusable QAM sections", () => {
       scrollTop: 140,
       scrollHeight: 640,
       clientHeight: 440,
+      scrollTo: vi.fn((_left: number, top: number) => {
+        scroller.scrollTop = top;
+      }),
     };
     const currentTarget = {
       parentElement: scroller,
@@ -74,6 +77,7 @@ describe("focusable QAM sections", () => {
     expect(frames).toHaveLength(1);
     expect(scroller.scrollTop).toBe(140);
     frames[0](0);
+    expect(scroller.scrollTo).toHaveBeenCalledWith(0, 0);
     expect(scroller.scrollTop).toBe(0);
     expect(currentTarget.scrollIntoView).not.toHaveBeenCalled();
 
