@@ -49,17 +49,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(node -p "require('./package.json').version")"
+          base_version="$(node -p "require('./package.json').version")"
+          short_hash="${GITHUB_SHA::7}"
+          dev_version="${base_version}-dev.g${short_hash}"
           node scripts/package.mjs \
             --release \
-            --release-version "$version" \
+            --release-version "$dev_version" \
             --release-tag dev-build \
             --channel dev
           python3 scripts/validate_plugin_zip.py \
             Decky-SteamAchievements.zip \
             --expected-root Decky-SteamAchievements \
             --expected-name "Achievements Restored" \
-            --expected-version "$version"
+            --expected-version "$dev_version"
 
       - name: Reconcile rolling tag, release, and ZIP asset
         env:
