@@ -219,11 +219,14 @@ class Plugin:
             return _read_settings(self._settings_path)
 
     def _save_setting(self, key: str, value: object) -> Settings:
-        with self._settings_lock:
-            settings = _read_settings(self._settings_path)
-            settings[key] = value
-            _write_settings(self._settings_path, settings)
-            return settings
+        # Keep the cross-process order aligned with _save_updater_state:
+        # runtime-state file lock, then the instance-local settings lock.
+        with self._runtime_state.locked():
+            with self._settings_lock:
+                settings = _read_settings(self._settings_path)
+                settings[key] = value
+                _write_settings(self._settings_path, settings)
+                return settings
 
     @staticmethod
     def _apply_debug_logging(enabled: bool) -> None:

@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import sys
+import threading
 import types
 from pathlib import Path
 
@@ -111,6 +112,69 @@ def test_old_settings_migrate_on_next_mutation_without_reset(plugin_module, tmp_
     assert json.loads(path.read_text(encoding="utf-8")) == {
         "feature_enabled": False,
         "debug_logging": True,
+        "update_channel": "development",
+        "automatic_update_checks": True,
+    }
+
+
+def test_independent_settings_holders_preserve_overlapping_mutations(
+    plugin_module, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module, _decky = plugin_module
+    first = module.Plugin()
+    second = module.Plugin()
+    first_has_read = threading.Event()
+    release_first = threading.Event()
+    second_has_read = threading.Event()
+    failures: list[BaseException] = []
+    real_read_settings = module._read_settings
+
+    def controlled_read(path: Path):
+        settings = real_read_settings(path)
+        if threading.current_thread().name == "first-settings-holder":
+            first_has_read.set()
+            if not release_first.wait(timeout=1):
+                raise TimeoutError("first settings holder was not released")
+        elif threading.current_thread().name == "second-settings-holder":
+            second_has_read.set()
+        return settings
+
+    monkeypatch.setattr(module, "_read_settings", controlled_read)
+
+    def mutate(plugin, key: str, value: object) -> None:
+        try:
+            plugin._save_setting(key, value)
+        except BaseException as exc:
+            failures.append(exc)
+
+    first_thread = threading.Thread(
+        name="first-settings-holder",
+        target=mutate,
+        args=(first, "feature_enabled", False),
+    )
+    second_thread = threading.Thread(
+        name="second-settings-holder",
+        target=mutate,
+        args=(second, "update_channel", "development"),
+    )
+    first_thread.start()
+    assert first_has_read.wait(timeout=1)
+    second_thread.start()
+
+    assert not second_has_read.wait(timeout=0.1)
+    release_first.set()
+    first_thread.join(timeout=1)
+    second_thread.join(timeout=1)
+
+    assert not first_thread.is_alive()
+    assert not second_thread.is_alive()
+    assert failures == []
+    assert second_has_read.is_set()
+    assert json.loads(
+        (tmp_path / "settings" / "settings.json").read_text(encoding="utf-8")
+    ) == {
+        "feature_enabled": False,
+        "debug_logging": False,
         "update_channel": "development",
         "automatic_update_checks": True,
     }
