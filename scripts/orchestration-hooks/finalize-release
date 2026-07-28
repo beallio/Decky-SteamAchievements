@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
-# Project release step. Invoked by orchestration/finalize AFTER it has merged the
-# feature branch into the base branch and pushed. Any args passed to `finalize`
-# after the slug are forwarded here (e.g. a release version).
-#
-# This hook is optional. If you delete it, finalize simply skips the release step.
-#
-# Decky Metadata has no automated release pipeline: a release is a manual rollup
-# build + Decky package zip. So this hook is a safe no-op by default — finalize
-# merges the branch and stops here. Uncomment
-# the packaging block below to produce the plugin zip as part of finalize.
+# Project release handoff. Invoked after orchestration merges the reviewed branch.
+# This hook only prints the human runbook; it never pushes, invokes gh, or dispatches
+# a workflow.
 set -euo pipefail
 
 version="${1:-}"
+target="${version:-X.Y.Z}"
 
-# repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-# cd "$repo_root"
-# npm run build
-# npm run package        # -> Decky plugin zip (scripts/package.mjs)
+cat <<EOF
+finalize-release: reviewed implementation merged locally; no remote action was taken.
 
-echo "finalize-release: no automated release for this project (version=${version:-none}); skipping" >&2
+Human release runbook: docs/runbooks/release.md
+
+  1. Curate and validate CHANGELOG.md for $target.
+  2. Deliberately merge dev into main at the human release gate.
+  3. On clean main, run: scripts/release.sh $target
+  4. Review the local tag and package, then run the two push commands it prints.
+  5. Return to dev, run scripts/bump_next_patch.sh, commit all three metadata
+     files together, and push dev to refresh the rolling dev-build prerelease.
+
+Removing ORCH_LOCAL_ONLY alone performs none of those remote or release steps.
+EOF
+
 exit 0
