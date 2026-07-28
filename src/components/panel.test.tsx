@@ -46,15 +46,19 @@ describe("focusable QAM sections", () => {
     expect(JSON.stringify(fields[0].props.children)).not.toContain("Active.");
   });
 
-  it("resets the outer QAM scroller after focus returns to the description", () => {
+  it("resets the outer QAM scroller after Steam's focus scroll settles", () => {
     const tree = DescriptionSection({});
     const field = collect(tree, "Field")[0];
-    const frames: FrameRequestCallback[] = [];
+    let onScrollEnd: (() => void) | undefined;
     const scroller = {
       parentElement: null,
       scrollTop: 140,
       scrollHeight: 640,
       clientHeight: 440,
+      addEventListener: vi.fn((name: string, callback: () => void) => {
+        if (name === "scrollend") onScrollEnd = callback;
+      }),
+      removeEventListener: vi.fn(),
       scrollTo: vi.fn((_left: number, top: number) => {
         scroller.scrollTop = top;
       }),
@@ -65,18 +69,24 @@ describe("focusable QAM sections", () => {
     };
 
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      frames.push(callback);
-      return frames.length;
+      callback(0);
+      return 1;
     });
+    vi.stubGlobal("setTimeout", vi.fn(() => 9));
+    vi.stubGlobal("clearTimeout", vi.fn());
     vi.stubGlobal("getComputedStyle", (element: unknown) => ({
       overflowY: element === scroller ? "auto" : "visible",
     }));
 
     field.props.onFocus({ currentTarget });
 
-    expect(frames).toHaveLength(1);
+    expect(scroller.addEventListener).toHaveBeenCalledWith(
+      "scrollend",
+      expect.any(Function),
+      { once: true },
+    );
     expect(scroller.scrollTop).toBe(140);
-    frames[0](0);
+    onScrollEnd?.();
     expect(scroller.scrollTo).toHaveBeenCalledWith(0, 0);
     expect(scroller.scrollTop).toBe(0);
     expect(currentTarget.scrollIntoView).not.toHaveBeenCalled();

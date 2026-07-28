@@ -2,7 +2,7 @@ import { Field, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { FocusEvent, Ref } from "react";
 import * as log from "../log";
 
-export function resetDescriptionScroll(description: HTMLDivElement) {
+function findDescriptionScroller(description: HTMLDivElement) {
   let ancestor = description.parentElement;
   while (ancestor) {
     const overflowY = getComputedStyle(ancestor).overflowY;
@@ -10,29 +10,56 @@ export function resetDescriptionScroll(description: HTMLDivElement) {
       (overflowY === "auto" || overflowY === "scroll") &&
       ancestor.scrollHeight > ancestor.clientHeight
     ) {
-      // Calling scrollTo cancels Steam's in-flight smooth nearest-scroll;
-      // assigning scrollTop does not reliably cancel that animation.
-      ancestor.scrollTo(0, 0);
-      return;
+      return ancestor;
     }
     ancestor = ancestor.parentElement;
   }
+  return null;
+}
+
+export function resetDescriptionScroll(description: HTMLDivElement) {
+  const scroller = findDescriptionScroller(description);
+  if (scroller) {
+    // Calling scrollTo cancels Steam's in-flight smooth nearest-scroll;
+    // assigning scrollTop does not reliably cancel that animation.
+    scroller.scrollTo(0, 0);
+    return;
+  }
   description.scrollIntoView({ block: "start", inline: "nearest" });
+}
+
+function resetAfterSteamScroll(description: HTMLDivElement) {
+  const scroller = findDescriptionScroller(description);
+  if (!scroller) {
+    resetDescriptionScroll(description);
+    return;
+  }
+
+  let settled = false;
+  let fallback: ReturnType<typeof setTimeout> | undefined;
+  const reveal = () => {
+    if (settled) return;
+    settled = true;
+    if (fallback !== undefined) clearTimeout(fallback);
+    scroller.removeEventListener("scrollend", reveal);
+    scroller.scrollTo(0, 0);
+  };
+
+  scroller.addEventListener("scrollend", reveal, { once: true });
+  fallback = setTimeout(reveal, 500);
 }
 
 const revealOnFocus = {
   // Decky's Field forwards DOM focus props even though its public type omits them.
   onFocus: (event: FocusEvent<HTMLDivElement>) => {
     const description = event.currentTarget;
-    requestAnimationFrame(() => {
-      try {
-        // Run after Steam's own smooth nearest-scroll so the sticky QAM header
-        // cannot cover the first line of the description.
-        resetDescriptionScroll(description);
-      } catch (error) {
-        log.debug("focus", "could not reveal QAM description", error);
-      }
-    });
+    try {
+      // Steam scrolls the row again after focus. Correct its final position so
+      // the sticky QAM header cannot cover the first description line.
+      resetAfterSteamScroll(description);
+    } catch (error) {
+      log.debug("focus", "could not reveal QAM description", error);
+    }
   },
 };
 
