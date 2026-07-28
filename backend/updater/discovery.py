@@ -54,7 +54,7 @@ def prevalidate_release_candidate(release: object) -> PrevalidatedRelease | None
             name = str(a_dict.get("name", ""))
             if name == expected_manifest_name:
                 manifest_assets.append(a_dict)
-            elif name == "Decky-SteamAchievements.zip":
+            elif name.endswith(".zip"):
                 zip_assets.append(a_dict)
     if len(manifest_assets) != 1:
         return None
@@ -103,6 +103,8 @@ def validate_prevalidated_candidate(
     if manifest.channel == "dev" and not pre.prerelease:
         return None
 
+    if manifest.asset_name != "Decky-SteamAchievements.zip":
+        return None
     if str(pre.zip_asset.get("name", "")) != manifest.asset_name:
         return None
 
@@ -222,4 +224,3 @@ def format_candidate_log(candidate: Any) -> str:
     sha256 = candidate.get("sha256")
     sha_prefix = sha256[:8] if (isinstance(sha256, str) and len(sha256) >= 8) else "unknown"
     return f"version={version}, tag={tag}, channel={channel}, sha256_prefix={sha_prefix}"
-

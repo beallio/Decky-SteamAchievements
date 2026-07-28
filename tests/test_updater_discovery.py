@@ -828,3 +828,29 @@ def test_clear_stale_cache_drops_last_notified_tag() -> None:
 
     assert updater.get_context()["last_notified_tag"] is None
 
+
+def test_prevalidation_rejects_an_extra_zip_asset() -> None:
+    from backend.updater.discovery import prevalidate_release_candidate
+
+    release = {
+        "draft": False,
+        "prerelease": False,
+        "tag_name": "v1.2.3",
+        "published_at": "2026-07-28T00:00:00Z",
+        "assets": [
+            {
+                "name": "Decky-SteamAchievements-v1.2.3.manifest.json",
+                "browser_download_url": "https://example.invalid/manifest",
+            },
+            {
+                "name": "Decky-SteamAchievements.zip",
+                "browser_download_url": "https://example.invalid/plugin",
+            },
+            {
+                "name": "unexpected.zip",
+                "browser_download_url": "https://example.invalid/unexpected",
+            },
+        ],
+    }
+
+    assert prevalidate_release_candidate(release) is None
