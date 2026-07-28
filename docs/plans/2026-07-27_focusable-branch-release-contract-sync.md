@@ -41,4 +41,3 @@ installer bundle on `feat/focusable-settings-versions-panel` into agreement with
   `DISTRIBUTION_ASSET = "Decky-SteamAchievements.zip"`, and matches its source files.
 - `npm test`, `npx tsc --noEmit`, `npm run build`, Python compilation/tests,
   `scripts/orchestration/run-quality-gates`, review-note integrity, and `git diff --check` pass.
-
