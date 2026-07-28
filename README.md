@@ -1,4 +1,4 @@
-# Achievements Restored - Restore SteamOS missing mini Achievements Bar
+# Achievements Restored — Decky QAM plugin restoring SteamOS's missing mini achievement bar
 
 A [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) plugin that
 **brings back the achievement progress bar Valve removed** from the Steam Deck

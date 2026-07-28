@@ -14,7 +14,10 @@ import { installAchievementBarPatch } from "./achievementBar";
 import { SettingsSection } from "./components/SettingsSection";
 import { VersionsSection } from "./components/VersionsSection";
 import { FocusablePanel } from "./components/FocusablePanel";
-import { DescriptionSection } from "./components/DescriptionSection";
+import {
+  DescriptionSection,
+  resetDescriptionScroll,
+} from "./components/DescriptionSection";
 import { AchievementFeatureController } from "./featureController";
 import { SettingsCoordinator } from "./settingsCoordinator";
 import * as log from "./log";
@@ -45,19 +48,7 @@ function Content({ coordinator }: { coordinator: SettingsCoordinator }) {
           // Decky's outer QAM scroller survives content remounts. Reset only
           // that scroll position; native HTMLElement.focus() bypasses Steam's
           // gamepad navigation state and can make this preferred row unreachable.
-          let ancestor = description.parentElement;
-          while (ancestor) {
-            const overflowY = getComputedStyle(ancestor).overflowY;
-            if (
-              (overflowY === "auto" || overflowY === "scroll") &&
-              ancestor.scrollHeight > ancestor.clientHeight
-            ) {
-              ancestor.scrollTop = 0;
-              return;
-            }
-            ancestor = ancestor.parentElement;
-          }
-          description.scrollIntoView({ block: "start", inline: "nearest" });
+          resetDescriptionScroll(description);
         } catch (error) {
           log.debug("focus", "could not reset QAM panel focus", error);
         }
