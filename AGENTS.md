@@ -27,7 +27,8 @@ diff, live runtime constraints, failed approaches, and the shipped mechanism).
 - `npm run package` builds `Decky-SteamAchievements.zip` via `scripts/package.mjs`.
 - `npm test` runs vitest; `uv run --with pytest -- pytest -q` runs backend tests.
 - `scripts/orchestration/run-quality-gates` runs metadata agreement, typecheck,
-  build, frontend tests, Python compilation/tests, and version drift checks.
+  build, frontend tests, Python compilation/tests, package validation, and
+  version drift checks.
 - `scripts/check_tdd.sh` enforces a matching test for new `src/*.py` (backend).
 
 ## Decky runtime facts (for the patch)
@@ -72,6 +73,9 @@ diff, live runtime constraints, failed approaches, and the shipped mechanism).
 ## Conventions
 
 - TypeScript/TSX for frontend under `src/`; Python backend in `main.py`/`backend/`.
+- Keep repository Python modules under `backend/`, but map them to
+  `<plugin>/py_modules/backend/` in packages and manual device deployments;
+  Decky does not add the installed plugin root to Python's import path.
 - Terse, factual commit messages; do not add Claude/AI trailers.
 - Prefer resilient lookups and graceful failure — a broken patch must never crash
   the Steam UI (wrap in try/catch, log, no-op on failure).

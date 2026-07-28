@@ -46,8 +46,8 @@ scripts/orchestration/run-quality-gates
 ```
 
 The frontend build is written to `dist/index.js`. The orchestration gate also
-checks source-metadata identity/version agreement and compiles the Python entry
-point.
+checks source-metadata identity/version agreement, compiles and tests the Python
+backend, then builds and validates the canonical plugin ZIP.
 
 `rollup.config.js` carries the small Decky-compatible build configuration directly. Keep the
 React/Decky globals, manifest substitution, asset URL, sourcemap transform, and narrowly scoped
@@ -65,8 +65,19 @@ This builds the frontend and creates `Decky-SteamAchievements.zip` in the
 repository root. Local builds include the current short Git commit as version
 metadata.
 
-Install the package with Decky's developer ZIP flow, or deploy `dist/` and the
-backend files to `~/homebrew/plugins/Decky-SteamAchievements/` for local testing.
+Python source stays under `backend/` in the repository, but Decky adds only the
+installed plugin's `py_modules/` directory to Python's import path. Packaging
+therefore maps every repository `backend/<path>.py` file to
+`Decky-SteamAchievements/py_modules/backend/<path>.py` in the ZIP. A package or
+manual device deployment must never place first-party modules in a root-level
+`backend/` directory.
+
+Install the package with Decky's developer ZIP flow. For a manual local-testing
+deployment, place `main.py` at
+`~/homebrew/plugins/Decky-SteamAchievements/main.py`, the frontend bundle under
+`~/homebrew/plugins/Decky-SteamAchievements/dist/`, and repository backend
+sources under
+`~/homebrew/plugins/Decky-SteamAchievements/py_modules/backend/`.
 To build, validate, and copy the canonical ZIP to the Deck's Downloads directory
 in one step, run `scripts/decky package-push`.
 

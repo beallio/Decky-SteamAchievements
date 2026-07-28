@@ -65,20 +65,31 @@ def prepare_request_helper_repo(
 
 def test_stable_release_publishes_exact_updater_assets() -> None:
     content = read(".github/workflows/release.yml")
+    preconditions = read("scripts/check_release_preconditions.sh")
+    precondition_step = content.index("scripts/check_release_preconditions.sh")
+    publish_step = content.index("- name: Publish stable GitHub Release")
     publish = content.split("- name: Publish stable GitHub Release", 1)[1]
     assert "Decky-SteamAchievements.zip" in publish
     assert '"Decky-SteamAchievements-$TAG.zip.sha256"' in publish
     assert '"Decky-SteamAchievements-$TAG.manifest.json"' in publish
     assert "--emit-release-metadata" in content
     assert "--channel stable" in content
+    assert precondition_step < publish_step
+    assert "python3 scripts/validate_plugin_zip.py" in preconditions
+    assert '--expected-version "$version"' in preconditions
 
 
 def test_rolling_dev_stays_zip_only_and_stamps_commit_version() -> None:
     content = read(".github/workflows/dev-release.yml")
+    validator = content.index("python3 scripts/validate_plugin_zip.py")
+    publish_step = content.index("- name: Reconcile rolling tag, release, and ZIP asset")
     assert "push:" in content and "- dev" in content
     assert "dev-build" in content
     assert 'dev_version="${base_version}-dev.g${short_hash}"' in content
     assert '--release-version "$dev_version"' in content
+    assert "python3 scripts/validate_plugin_zip.py" in content
+    assert '--expected-version "$dev_version"' in content
+    assert validator < publish_step
     assert "--emit-release-metadata" not in content
     publish = content.split("- name: Reconcile rolling tag, release, and ZIP asset", 1)[1]
     assert "Decky-SteamAchievements.zip" in publish
@@ -88,6 +99,8 @@ def test_rolling_dev_stays_zip_only_and_stamps_commit_version() -> None:
 
 def test_immutable_dev_workflow_enforces_semver_identity_and_three_assets() -> None:
     content = read(".github/workflows/immutable-dev-release.yml")
+    validator = content.index("python3 scripts/validate_plugin_zip.py")
+    publish_step = content.index("- name: Create immutable tag and prerelease")
     assert "workflow_dispatch:" in content
     assert "base_version:" in content
     assert 'DEV_VERSION="$BASE_VERSION-dev.g$SHORT_SHA"' in content
@@ -97,6 +110,9 @@ def test_immutable_dev_workflow_enforces_semver_identity_and_three_assets() -> N
     assert "--emit-release-metadata" in content
     assert "--channel dev" in content
     assert "scripts/orchestration-hooks/quality-gates" in content
+    assert "python3 scripts/validate_plugin_zip.py" in content
+    assert '--expected-version "$DEV_VERSION"' in content
+    assert validator < publish_step
     assert "Decky-SteamAchievements.zip" in content
     assert 'Decky-SteamAchievements-$DEV_TAG.zip.sha256' in content
     assert 'Decky-SteamAchievements-$DEV_TAG.manifest.json' in content
