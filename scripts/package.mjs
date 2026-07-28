@@ -61,7 +61,10 @@ function main() {
     ["plugin.json", "plugin.json"],
     ["LICENSE", "LICENSE"],
     ["dist/index.js", "dist/index.js"],
-    ...findPythonModules(repoRoot, "backend").map((relative) => [relative, relative]),
+    ...findPythonModules(repoRoot, "backend").map((relative) => [
+      relative,
+      path.join("py_modules", relative),
+    ]),
   ];
   const optionalFiles = [
     ["NOTICE", "NOTICE"],
