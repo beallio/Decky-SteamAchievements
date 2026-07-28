@@ -1,14 +1,17 @@
-import { definePlugin } from "@decky/api";
+import { definePlugin, toaster } from "@decky/api";
 import { staticClasses } from "@decky/ui";
 import { useEffect, useRef, useState } from "react";
 import { FaTrophy } from "react-icons/fa6";
 import {
   getSettings,
+  getUpdateCheckContextCall,
   getVersions,
   setAutomaticUpdateChecksCall,
   setDebugLogging,
   setFeatureEnabled,
   setUpdateChannelCall,
+  checkForPluginUpdateCall,
+  markUpdateNotifiedCall,
   type PluginSettings,
   type Versions,
 } from "./backend";
@@ -19,6 +22,7 @@ import {
 } from "./components/DescriptionSection";
 import { AchievementFeatureController } from "./featureController";
 import { SettingsCoordinator } from "./settingsCoordinator";
+import { createUpdatePoller } from "./runtime/updatePoller";
 import * as log from "./log";
 
 const PLUGIN_NAME = "Achievements Restored";
@@ -138,6 +142,21 @@ export default definePlugin(() => {
     },
   });
   coordinator.start();
+  const updatePoller = createUpdatePoller({
+    getUpdateCheckContext: getUpdateCheckContextCall,
+    checkForUpdate: checkForPluginUpdateCall,
+    markUpdateNotified: markUpdateNotifiedCall,
+    notify(title, body) {
+      toaster.toast({ title, body, duration: 5000 });
+    },
+    log(level, message) {
+      if (level === "warning") log.warn("updater-poller", message);
+      else if (level === "error") log.error("updater-poller", message);
+      else if (level === "debug") log.debug("updater-poller", message);
+      else log.info("updater-poller", message);
+    },
+  });
+  updatePoller.start();
 
   return {
     name: PLUGIN_NAME,
@@ -145,6 +164,7 @@ export default definePlugin(() => {
     content: <Content coordinator={coordinator} />,
     icon: <FaTrophy />,
     onDismount() {
+      updatePoller.dispose();
       coordinator.dispose();
     },
   };
