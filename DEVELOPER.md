@@ -59,6 +59,8 @@ metadata.
 
 Install the package with Decky's developer ZIP flow, or deploy `dist/` and the
 backend files to `~/homebrew/plugins/Decky-SteamAchievements/` for local testing.
+To build, validate, and copy the canonical ZIP to the Deck's Downloads directory
+in one step, run `scripts/decky package-push`.
 
 ## Build the Desktop installer bundle
 

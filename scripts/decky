@@ -19,7 +19,7 @@ Commands:
   doctor [--deck] [--json] [--quiet]
   verify-change [BASE_REF] [--explain] [--device] [--allow-launch] [--extended]
   capture [--since TIMESTAMP] [--include-settings]
-  package-push [--build] [--push] [--force] [--json]
+  package-push
   status [--deck] [--json]
   steamui snapshot
   steamui search PATTERN [--build BUILD_ID]
@@ -31,8 +31,8 @@ unavailable() {
 decky: '$1' is unavailable in this repository.
 
 It requires scripts/deck/ (on-device tooling), which Decky-SteamAchievements does not have.
-Those helpers live in the sibling Decky-Metadata repo and are being consolidated into
-decky-tooling; this repo has not adopted them. Available here: doctor, status.
+Those helpers have not been adopted by this repository. Available here: doctor,
+status, and package-push.
 EOF
   exit 3
 }
@@ -43,11 +43,14 @@ cmd="${1:-}"
 [[ -n "$cmd" ]] || { usage; exit 2; }
 shift
 case "$cmd" in
-  # This repo has no run.sh (no Python backend); decky_doctor.py is stdlib-only.
+  # The project health report is stdlib-only.
   doctor) exec python3 scripts/decky_doctor.py "$@" ;;
   status) exec python3 scripts/decky_doctor.py "$@" ;;
   capture) unavailable capture ;;
-  package-push) unavailable package-push ;;
+  package-push)
+    (($# == 0)) || invalid "package-push accepts no options"
+    DECKY_POST_COMMIT_ALL=1 exec scripts/post_commit.sh
+    ;;
   steamui) unavailable steamui ;;
   verify-change)
     base=""; explain=0; device=0; allow_launch=0; extended=0
