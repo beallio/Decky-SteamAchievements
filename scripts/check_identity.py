@@ -10,7 +10,7 @@ from pathlib import Path
 
 CANONICAL = "Decky-SteamAchievements"
 PACKAGE_NAME = "decky-steamachievements"
-QAM_TITLE = "Achievements Restored"
+QAM_TITLE = "Achievements" + " Restored"
 
 
 def tracked_files(root: Path) -> list[Path]:
